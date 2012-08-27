@@ -192,9 +192,10 @@ grade:
 	  (echo "'make clean' failed.  HINT: Do you have another running instance of JOS?" && exit 1)
 	./grade-lab$(LAB) $(GRADEFLAGS)
 
-handin: tarball
-	@echo Please visit http://pdos.csail.mit.edu/6.828/submit/
-	@echo and upload lab$(LAB)-handin.tar.gz.  Thanks!
+handin: realclean
+	if [ `git status --porcelain| wc -l` != 0 ] ; then echo "\n\n\n\n\t\tWARNING: YOU HAVE UNCOMMITTED CHANGES\n\n    Consider committing any pending changes and rerunning make handin.\n\n\n\n"; fi
+	git tag -f -a lab$(LAB)-handin -m "Lab$(LAB) Handin"
+	git push --tags
 
 tarball:
 	@if test "$$(git symbolic-ref HEAD)" != refs/heads/lab$(LAB); then \
