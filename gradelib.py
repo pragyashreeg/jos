@@ -507,8 +507,8 @@ def stop_breakpoint(addr):
 
     def setup_breakpoint(runner):
         if isinstance(addr, str):
-            addrs = [int(sym[:8], 16) for sym in file("obj/kern/kernel.sym")
-                     if sym[11:].strip() == addr]
+            addrs = [int(sym[:16], 16) for sym in file("obj/kern/kernel.sym")
+                     if sym[19:].strip() == addr]
             assert len(addrs), "Symbol %s not found" % addr
             runner.gdb.breakpoint(addrs[0])
         else:

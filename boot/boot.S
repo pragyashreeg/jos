@@ -1,6 +1,6 @@
 #include <inc/mmu.h>
 
-# Start the CPU: switch to 32-bit protected mode, jump into C.
+# Start the CPU: relocate itself to 0x600 and load the second stage bootloader
 # The BIOS loads this code from the first sector of the hard disk into
 # memory at physical address 0x7c00 and starts executing in real mode
 # with %cs=0 %ip=7c00.
@@ -15,71 +15,118 @@ start:
   cli                         # Disable interrupts
   cld                         # String operations increment
 
-  # Set up the important data segment registers (DS, ES, SS).
-  xorw    %ax,%ax             # Segment number zero
-  movw    %ax,%ds             # -> Data Segment
-  movw    %ax,%es             # -> Extra Segment
-  movw    %ax,%ss             # -> Stack Segment
-
-  # Enable A20:
-  #   For backwards compatibility with the earliest PCs, physical
-  #   address line 20 is tied low, so that addresses higher than
-  #   1MB wrap around to zero by default.  This code undoes this.
-seta20.1:
-  inb     $0x64,%al               # Wait for not busy
-  testb   $0x2,%al
-  jnz     seta20.1
-
-  movb    $0xd1,%al               # 0xd1 -> port 0x64
-  outb    %al,$0x64
-
-seta20.2:
-  inb     $0x64,%al               # Wait for not busy
-  testb   $0x2,%al
-  jnz     seta20.2
-
-  movb    $0xdf,%al               # 0xdf -> port 0x60
-  outb    %al,$0x60
-
-  # Switch from real to protected mode, using a bootstrap GDT
-  # and segment translation that makes virtual addresses 
-  # identical to their physical addresses, so that the 
-  # effective memory map does not change during the switch.
-  lgdt    gdtdesc
-  movl    %cr0, %eax
-  orl     $CR0_PE_ON, %eax
-  movl    %eax, %cr0
+  #relocate the the MBR from 0x7c00 to 0x0600
+relocate_mbr:
+  xorw    %ax,%ax
+  movw    %ax,%ss    #setup the stack segment
+  movw    $0x7c00,%sp  # set the stack pointer to 0x7c00
+  movw    %sp,%si    # si is set to 0x7c00
+  push    %ax
+  pop     %es        # now at 0:0x7c00
+  push    %ax 
+  pop     %ds
+  sti
+  cld
+  movw    $0x600 , %di
+  movw    $0x100, %cx  # copy 256 words = 512 bytes
+  repnz  
+  movsw
+  # test for mbr signature
+  movw     $0x7FE, %di
+  movw     (%di), %ax
+  cmpw     $0xAA55,%ax
+  jnz     relocate_mbr    # check for bios signature other go back to relocate_mbr
   
-  # Jump to next instruction, but in 32-bit code segment.
-  # Switches processor into 32-bit mode.
-  ljmp    $PROT_MODE_CSEG, $protcseg
+  ljmp    $0x0,$0x628  # jump to reset
 
-  .code32                     # Assemble for 32-bit mode
-protcseg:
-  # Set up the protected-mode data segment registers
-  movw    $PROT_MODE_DSEG, %ax    # Our data segment selector
-  movw    %ax, %ds                # -> DS: Data Segment
-  movw    %ax, %es                # -> ES: Extra Segment
-  movw    %ax, %fs                # -> FS
-  movw    %ax, %gs                # -> GS
-  movw    %ax, %ss                # -> SS: Stack Segment
   
-  # Set up the stack pointer and call into C.
-  movl    $start, %esp
-  call bootmain
+ 
+ 
+read_disk:
+  call disk_ready_loop     # wait for disk to be ready
+  movb $0x2,%al            # Read 2 sectors
+  movw $0x1f2,%dx
+  outb %al,%dx
+  incw %dx
+  movb $0x1,%al            # start reading at offset 1 
+  outb %al,%dx
+  shrb  $8,%al            
+  incw %dx
+  outb %al,%dx
+  shrb  $8,%al
+  incw %dx
+  outb %al,%dx
+  shrb  $8,%al
+  orb   $0xe0,%al        
+  incw  %dx
+  outb %al,%dx
+  movb $0x20,%al           # command to read sectors
+  incw  %dx
+  outb %al,%dx # command to read sectors
+  call disk_ready_loop
 
-  # If bootmain returns (it shouldn't), loop.
-spin:
-  jmp spin
+  movw $0x1f0,%dx  # port to read from
+  movw $0x200,%cx  # read 200 words
+  xorw %ax,%ax
+  movw %ax,%es
+  movl $0x1000,%edi  # es:edi = 0:0x1000 .. copy to this memory location
+  rep  insw
+  ljmp $0x0,$0x1000  # jump to the beginning of the second stage that got loaded just now
 
-# Bootstrap GDT
-.p2align 2                                # force 4 byte alignment
-gdt:
-  SEG_NULL				# null seg
-  SEG(STA_X|STA_R, 0x0, 0xffffffff)	# code seg
-  SEG(STA_W, 0x0, 0xffffffff)	        # data seg
+disk_ready_loop:
+  movw    $0x1f7, %dx
+  movb    $0xc0, %bl
+  inb     %dx,%al
+  andb    %bl,%al
+  cmpb     $0x40,%al
+  jne     disk_ready_loop
+  ret
 
-gdtdesc:
-  .word   0x17                            # sizeof(gdt) - 1
-  .long   gdt                             # address gdt
+displayError:    #just to test the 2nd stage is getting copied
+  movw    (%esp),%si
+loopmsg:
+  subw    $0x7c00, %si
+  addw    $0x600, %si
+  lodsb
+  cmp    $0x35,%al
+  jz    hang
+  push   %si
+  movw   $0x7,%bx
+  movb   $0x0e, %ah
+  int    $0x10
+  pop    %si
+  subw   $0x600, %si
+  addw   $0x7c00, %si
+  jmp    loopmsg
 
+displaySuccess:    #just to test the 2nd stage is getting copies
+  movw   2(%esp),%si
+loop:
+  addw    $0x600, %si
+  subw    $0x7c00,%si
+  lodsb
+  cmp    $0x35,%al
+  jz     success
+  push   %si
+  movw   $0x7,%bx
+  movb   $0x0e, %ah
+  int    $0x10
+  pop    %si
+  subw   $0x600, %si
+  addw   $0x7c00, %si
+  jmp    loop
+success:
+  ret
+
+
+hang:
+    jmp hang
+
+.data
+
+sectorReadError:
+ .string "Can't read the sector"
+diskresetsuccess:
+ .string "Disk reset success5"
+sectorReadSuccess:
+ .string "Sector read success5"

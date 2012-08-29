@@ -54,12 +54,14 @@ printnum(void (*putch)(int, void*), void *putdat,
 static unsigned long long
 getuint(va_list *ap, int lflag)
 {
+	unsigned long long x;    
 	if (lflag >= 2)
-		return va_arg(*ap, unsigned long long);
+		x= va_arg(*ap, unsigned long long);
 	else if (lflag)
-		return va_arg(*ap, unsigned long);
+		x= va_arg(*ap, unsigned long);
 	else
-		return va_arg(*ap, unsigned int);
+		x= va_arg(*ap, unsigned int);
+	return x;
 }
 
 // Same as getuint but signed - can't use getuint
@@ -67,12 +69,14 @@ getuint(va_list *ap, int lflag)
 static long long
 getint(va_list *ap, int lflag)
 {
+	long long x;
 	if (lflag >= 2)
-		return va_arg(*ap, long long);
+		x=va_arg(*ap, long long);
 	else if (lflag)
-		return va_arg(*ap, long);
+		x=va_arg(*ap, long);
 	else
-		return va_arg(*ap, int);
+		x=va_arg(*ap, int);
+	return x;
 }
 
 
@@ -87,7 +91,8 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 	unsigned long long num;
 	int base, lflag, width, precision, altflag;
 	char padc;
-
+	va_list aq;
+	va_copy(aq,ap);
 	while (1) {
 		while ((ch = *(unsigned char *) fmt++) != '%') {
 			if (ch == '\0')
@@ -133,7 +138,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			goto process_precision;
 
 		case '*':
-			precision = va_arg(ap, int);
+			precision = va_arg(aq, int);
 			goto process_precision;
 
 		case '.':
@@ -157,12 +162,12 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// character
 		case 'c':
-			putch(va_arg(ap, int), putdat);
+			putch(va_arg(aq, int), putdat);
 			break;
 
 		// error message
 		case 'e':
-			err = va_arg(ap, int);
+			err = va_arg(aq, int);
 			if (err < 0)
 				err = -err;
 			if (err >= MAXERROR || (p = error_string[err]) == NULL)
@@ -173,7 +178,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// string
 		case 's':
-			if ((p = va_arg(ap, char *)) == NULL)
+			if ((p = va_arg(aq, char *)) == NULL)
 				p = "(null)";
 			if (width > 0 && padc != '-')
 				for (width -= strnlen(p, precision); width > 0; width--)
@@ -189,7 +194,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// (signed) decimal
 		case 'd':
-			num = getint(&ap, lflag);
+			num = getint(&aq, lflag);
 			if ((long long) num < 0) {
 				putch('-', putdat);
 				num = -(long long) num;
@@ -199,7 +204,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// unsigned decimal
 		case 'u':
-			num = getuint(&ap, lflag);
+			num = getuint(&aq, lflag);
 			base = 10;
 			goto number;
 
@@ -222,7 +227,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// (unsigned) hexadecimal
 		case 'x':
-			num = getuint(&ap, lflag);
+			num = getuint(&aq, lflag);
 			base = 16;
 		number:
 			printnum(putch, putdat, num, base, width, padc);
@@ -241,6 +246,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			break;
 		}
 	}
+    va_end(aq);
 }
 
 void

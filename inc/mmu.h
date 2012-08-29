@@ -20,39 +20,49 @@
 // |      Index     |      Index     |                     |
 // +----------------+----------------+---------------------+
 //  \--- PDX(la) --/ \--- PTX(la) --/ \---- PGOFF(la) ----/
-//  \---------- PGNUM(la) ----------/
+//  \----------- VPN(la) -----------/
 //
-// The PDX, PTX, PGOFF, and PGNUM macros decompose linear addresses as shown.
+// The PDX, PTX, PGOFF, and VPN macros decompose linear addresses as shown.
 // To construct a linear address la from PDX(la), PTX(la), and PGOFF(la),
 // use PGADDR(PDX(la), PTX(la), PGOFF(la)).
 
 // page number field of address
-#define PGNUM(la)	(((uintptr_t) (la)) >> PTXSHIFT)
+#define PPN(pa)		(((uintptr_t) (pa)) >> PTXSHIFT)
+#define VPN(la)		PPN(la)		// used to index into vpt[]
 
 // page directory index
-#define PDX(la)		((((uintptr_t) (la)) >> PDXSHIFT) & 0x3FF)
+#define PDX(la)		((((uintptr_t) (la)) >> PDXSHIFT) & 0x1FF)
+#define VPD(la)		PDX(la)		// used to index into vpd[]
+
+#define PML4(la)  ((((uintptr_t) (la)) >> PML4SHIFT) & 0x1FF)
 
 // page table index
-#define PTX(la)		((((uintptr_t) (la)) >> PTXSHIFT) & 0x3FF)
+#define PTX(la)		((((uintptr_t) (la)) >> PTXSHIFT) & 0x1FF)
+#define PDPE(la)   ((((uintptr_t) (la)) >> PDPESHIFT) & 0x1FF)
+
 
 // offset in page
 #define PGOFF(la)	(((uintptr_t) (la)) & 0xFFF)
 
 // construct linear address from indexes and offset
-#define PGADDR(d, t, o)	((void*) ((d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
+#define PGADDR(m,p,d, t, o)	((void*) ((m) << PML4SHIFT| (p) << PDPESHIFT | (d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
 
 // Page directory and page table constants.
-#define NPDENTRIES	1024		// page directory entries per page directory
-#define NPTENTRIES	1024		// page table entries per page table
+#define NPMLENTRIES	512		// page directory entries per page directory
+#define NPDPENTRIES	512		// page table entries per page table
+#define NPDENTRIES     512
+#define NPTENTRIES     512
 
 #define PGSIZE		4096		// bytes mapped by a page
 #define PGSHIFT		12		// log2(PGSIZE)
 
 #define PTSIZE		(PGSIZE*NPTENTRIES) // bytes mapped by a page directory entry
-#define PTSHIFT		22		// log2(PTSIZE)
+#define PTSHIFT		21		// log2(PTSIZE)
 
 #define PTXSHIFT	12		// offset of PTX in a linear address
-#define PDXSHIFT	22		// offset of PDX in a linear address
+#define PDXSHIFT	21		// offset of PDX in a linear address
+#define PDPESHIFT    30
+#define PML4SHIFT   39
 
 // Page table/directory entry flags.
 #define PTE_P		0x001	// Present
@@ -63,14 +73,14 @@
 #define PTE_A		0x020	// Accessed
 #define PTE_D		0x040	// Dirty
 #define PTE_PS		0x080	// Page Size
-#define PTE_G		0x100	// Global
+#define PTE_MBZ		0x180	// Bits must be zero
 
 // The PTE_AVAIL bits aren't used by the kernel or interpreted by the
 // hardware, so user processes are allowed to set them arbitrarily.
 #define PTE_AVAIL	0xE00	// Available for software use
 
-// Flags in PTE_SYSCALL may be used in system calls.  (Others may not.)
-#define PTE_SYSCALL	(PTE_AVAIL | PTE_P | PTE_W | PTE_U)
+// Only flags in PTE_USER may be used in system calls.
+#define PTE_USER	(PTE_AVAIL | PTE_P | PTE_W | PTE_U)
 
 // Address in page table or page directory entry
 #define PTE_ADDR(pte)	((physaddr_t) (pte) & ~0xFFF)
@@ -95,6 +105,11 @@
 #define CR4_TSD		0x00000004	// Time Stamp Disable
 #define CR4_PVI		0x00000002	// Protected-Mode Virtual Interrupts
 #define CR4_VME		0x00000001	// V86 Mode Extensions
+
+//x86_64 related changes
+#define CR4_PAE     0x00000020
+#define EFER_MSR    0xC0000080
+#define EFER_LME    8
 
 // Eflags register
 #define FL_CF		0x00000001	// Carry Flag
@@ -144,6 +159,15 @@
 	.byte (((base) >> 16) & 0xff), (0x90 | (type)),		\
 		(0xC0 | (((lim) >> 28) & 0xf)), (((base) >> 24) & 0xff)
 
+#define SEG64(type,base,lim)					\
+	.word (((lim) >> 12) & 0xffff), ((base) & 0xffff);	\
+	.byte (((base) >> 16) & 0xff), (0x90 | (type)),		\
+		(0xA0 | (((lim) >> 28) & 0xF)), (((base) >> 24) & 0xff)
+
+#define SEG64USER(type,base,lim)					\
+	.word (((lim) >> 12) & 0xffff), ((base) & 0xffff);	\
+	.byte (((base) >> 16) & 0xff), (0xf0 | (type)),		\
+		(0xA0 | (((lim) >> 28) & 0xF)), (((base) >> 24) & 0xff)
 #else	// not __ASSEMBLER__
 
 #include <inc/types.h>
@@ -159,10 +183,28 @@ struct Segdesc {
 	unsigned sd_p : 1;          // Present
 	unsigned sd_lim_19_16 : 4;  // High bits of segment limit
 	unsigned sd_avl : 1;        // Unused (available for software use)
-	unsigned sd_rsv1 : 1;       // Reserved
+	unsigned sd_l : 1;       // Reserved
 	unsigned sd_db : 1;         // 0 = 16-bit segment, 1 = 32-bit segment
 	unsigned sd_g : 1;          // Granularity: limit scaled by 4K when set
 	unsigned sd_base_31_24 : 8; // High bits of segment base address
+};
+struct SystemSegdesc64{
+    unsigned sd_lim_15_0 : 16;
+    unsigned sd_base_15_0 : 16;
+    unsigned sd_base_23_16 : 8;
+    unsigned sd_type : 4;
+	unsigned sd_s : 1;          // 0 = system, 1 = application
+	unsigned sd_dpl : 2;        // Descriptor Privilege Level
+	unsigned sd_p : 1;          // Present
+	unsigned sd_lim_19_16 : 4;  // High bits of segment limit
+	unsigned sd_avl : 1;        // Unused (available for software use)
+	unsigned sd_rsv1 : 2;       // Reserved
+	unsigned sd_g : 1;          // Granularity: limit scaled by 4K when set
+	unsigned sd_base_31_24 : 8; // High bits of segment base address
+    uint32_t sd_base_63_32;  
+    unsigned sd_res1 : 8;
+    unsigned sd_clear : 8;
+    unsigned sd_res2 : 16;
 };
 // Null segment
 #define SEG_NULL	(struct Segdesc){ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
@@ -173,6 +215,11 @@ struct Segdesc {
 { ((lim) >> 12) & 0xffff, (base) & 0xffff, ((base) >> 16) & 0xff,	\
     type, 1, dpl, 1, (unsigned) (lim) >> 28, 0, 0, 1, 1,		\
     (unsigned) (base) >> 24 }
+#define SEG64(type, base, lim, dpl) (struct Segdesc)			\
+{ ((lim) >> 12) & 0xffff, (base) & 0xffff, ((base) >> 16) & 0xff,	\
+    type, 1, dpl, 1, (unsigned) (lim) >> 28, 0, 1, 0, 1,		\
+    (unsigned) (base) >> 24 }
+
 #define SEG16(type, base, lim, dpl) (struct Segdesc)			\
 { (lim) & 0xffff, (base) & 0xffff, ((base) >> 16) & 0xff,		\
     type, 1, dpl, 1, (unsigned) (lim) >> 16, 0, 0, 1, 0,		\
@@ -189,18 +236,18 @@ struct Segdesc {
 #define STA_A		0x1	    // Accessed
 
 // System segment type bits
-#define STS_T16A	0x1	    // Available 16-bit TSS
+//#define STS_T16A	0x1	    // Available 16-bit TSS
 #define STS_LDT		0x2	    // Local Descriptor Table
-#define STS_T16B	0x3	    // Busy 16-bit TSS
-#define STS_CG16	0x4	    // 16-bit Call Gate
-#define STS_TG		0x5	    // Task Gate / Coum Transmitions
-#define STS_IG16	0x6	    // 16-bit Interrupt Gate
-#define STS_TG16	0x7	    // 16-bit Trap Gate
-#define STS_T32A	0x9	    // Available 32-bit TSS
-#define STS_T32B	0xB	    // Busy 32-bit TSS
-#define STS_CG32	0xC	    // 32-bit Call Gate
-#define STS_IG32	0xE	    // 32-bit Interrupt Gate
-#define STS_TG32	0xF	    // 32-bit Trap Gate
+//#define STS_T16B	0x3	    // Busy 16-bit TSS
+//#define STS_CG16	0x4	    // 16-bit Call Gate
+//#define STS_TG		0x5	    // Task Gate / Coum Transmitions
+//#define STS_IG16	0x6	    // 16-bit Interrupt Gate
+//#define STS_TG16	0x7	    // 16-bit Trap Gate
+#define STS_T64A	0x9	    // Available 64-bit TSS
+#define STS_T64B	0xB	    // Busy 64-bit TSS
+#define STS_CG64	0xC	    // 64-bit Call Gate
+#define STS_IG64	0xE	    // 64-bit Interrupt Gate
+#define STS_TG64	0xF	    // 64-bit Trap Gate
 
 
 /*
@@ -213,58 +260,57 @@ struct Segdesc {
 
 // Task state segment format (as described by the Pentium architecture book)
 struct Taskstate {
-	uint32_t ts_link;	// Old ts selector
+	uint32_t ts_res1;	// -- reserved in long mode
 	uintptr_t ts_esp0;	// Stack pointers and segment selectors
-	uint16_t ts_ss0;	//   after an increase in privilege level
-	uint16_t ts_padding1;
 	uintptr_t ts_esp1;
-	uint16_t ts_ss1;
-	uint16_t ts_padding2;
 	uintptr_t ts_esp2;
-	uint16_t ts_ss2;
-	uint16_t ts_padding3;
-	physaddr_t ts_cr3;	// Page directory base
-	uintptr_t ts_eip;	// Saved state from last task switch
-	uint32_t ts_eflags;
-	uint32_t ts_eax;	// More saved state (registers)
-	uint32_t ts_ecx;
-	uint32_t ts_edx;
-	uint32_t ts_ebx;
-	uintptr_t ts_esp;
-	uintptr_t ts_ebp;
-	uint32_t ts_esi;
-	uint32_t ts_edi;
-	uint16_t ts_es;		// Even more saved state (segment selectors)
-	uint16_t ts_padding4;
-	uint16_t ts_cs;
-	uint16_t ts_padding5;
-	uint16_t ts_ss;
-	uint16_t ts_padding6;
-	uint16_t ts_ds;
-	uint16_t ts_padding7;
-	uint16_t ts_fs;
-	uint16_t ts_padding8;
-	uint16_t ts_gs;
-	uint16_t ts_padding9;
-	uint16_t ts_ldt;
-	uint16_t ts_padding10;
-	uint16_t ts_t;		// Trap on task switch
+	uint64_t ts_res2;	// reserved in long mode
+    uint64_t ts_ist1;
+    uint64_t ts_ist2;
+    uint64_t ts_ist3;
+    uint64_t ts_ist4;
+    uint64_t ts_ist5;
+    uint64_t ts_ist6;
+    uint64_t ts_ist7;
+    uint64_t ts_res3;
+    uint16_t ts_res4;
 	uint16_t ts_iomb;	// I/O map base address
-};
+}__attribute__ ((packed));
 
 // Gate descriptors for interrupts and traps
 struct Gatedesc {
 	unsigned gd_off_15_0 : 16;   // low 16 bits of offset in segment
-	unsigned gd_sel : 16;        // segment selector
-	unsigned gd_args : 5;        // # args, 0 for interrupt/trap gates
-	unsigned gd_rsv1 : 3;        // reserved(should be zero I guess)
+	unsigned gd_ss : 16;         // segment selector
+	unsigned gd_ist : 3;        // # args, 0 for interrupt/trap gates
+	unsigned gd_rsv1 : 5;        // reserved(should be zero I guess)
 	unsigned gd_type : 4;        // type(STS_{TG,IG32,TG32})
 	unsigned gd_s : 1;           // must be 0 (system)
 	unsigned gd_dpl : 2;         // descriptor(meaning new) privilege level
 	unsigned gd_p : 1;           // Present
 	unsigned gd_off_31_16 : 16;  // high bits of offset in segment
+    uint32_t gd_off_32_63;       
+    uint32_t gd_rsv2;                   
 };
 
+#define SETTSS(desc,type,base,lim,dpl)   \
+{         \
+    (desc)->sd_lim_15_0 = (uint64_t) (lim) & 0xffff; \
+    (desc)->sd_base_15_0 = (uint64_t)(base) & 0xffff; \
+    (desc)->sd_base_23_16 = ((uint64_t)(base)>>16) & 0xff;   \
+    (desc)->sd_type = type;  \
+    (desc)->sd_s = 0; \
+    (desc)->sd_dpl = 0; \
+    (desc)->sd_p = 1; \
+    (desc)->sd_lim_19_16 = ((uint64_t)(lim) >> 16) & 0xf;  \
+    (desc)->sd_avl = 0; \
+    (desc)->sd_rsv1 = 0; \
+    (desc)->sd_g = 0;    \
+    (desc)->sd_base_31_24 = ((uint64_t)(base)>>24)& 0xff; \
+    (desc)->sd_base_63_32 = ((uint64_t)(base)>>32) & 0xffffffff; \
+    (desc)->sd_res1 = 0; \
+    (desc)->sd_clear = 0; \
+    (desc)->sd_res2 = 0; \
+}
 // Set up a normal interrupt/trap gate descriptor.
 // - istrap: 1 for a trap (= exception) gate, 0 for an interrupt gate.
     //   see section 9.6.1.3 of the i386 reference: "The difference between
@@ -280,36 +326,40 @@ struct Gatedesc {
 //	  the privilege level required for software to invoke
 //	  this interrupt/trap gate explicitly using an int instruction.
 #define SETGATE(gate, istrap, sel, off, dpl)			\
-{								\
-	(gate).gd_off_15_0 = (uint32_t) (off) & 0xffff;		\
-	(gate).gd_sel = (sel);					\
-	(gate).gd_args = 0;					\
+{	                        \
+    (gate).gd_off_15_0 = (uint64_t) (off) & 0xffff;		\
+	(gate).gd_ss = (sel);					\
+	(gate).gd_ist = 0;					\
 	(gate).gd_rsv1 = 0;					\
-	(gate).gd_type = (istrap) ? STS_TG32 : STS_IG32;	\
+	(gate).gd_type = (istrap) ? STS_TG64 : STS_IG64;	\
 	(gate).gd_s = 0;					\
 	(gate).gd_dpl = (dpl);					\
 	(gate).gd_p = 1;					\
-	(gate).gd_off_31_16 = (uint32_t) (off) >> 16;		\
+	(gate).gd_off_31_16 = ((uint64_t) (off) >> 16) & 0xffff;		\
+    (gate).gd_off_32_63 = ((uint64_t) (off) >> 32) & 0xffffffff;       \
+    (gate).gd_rsv2 = 0;               \
 }
 
 // Set up a call gate descriptor.
-#define SETCALLGATE(gate, sel, off, dpl)           	        \
+#define SETCALLGATE(gate, ss, off, dpl)           	        \
 {								\
 	(gate).gd_off_15_0 = (uint32_t) (off) & 0xffff;		\
-	(gate).gd_sel = (sel);					\
-	(gate).gd_args = 0;					\
+	(gate).gd_ss = (ss);					\
+	(gate).gd_ist = 0;					\
 	(gate).gd_rsv1 = 0;					\
-	(gate).gd_type = STS_CG32;				\
+	(gate).gd_type = STS_CG64;				\
 	(gate).gd_s = 0;					\
 	(gate).gd_dpl = (dpl);					\
 	(gate).gd_p = 1;					\
-	(gate).gd_off_31_16 = (uint32_t) (off) >> 16;		\
+	(gate).gd_off_31_16 = ((uint32_t) (off) >> 16) & 0xffff;		\
+    (gate).gd_off_32_63 = ((uint64_t) (off) >> 32) & 0xffffffff;       \
+    (gate).gd_rsv2 = 0;               \
 }
 
 // Pseudo-descriptors used for LGDT, LLDT and LIDT instructions.
 struct Pseudodesc {
 	uint16_t pd_lim;		// Limit
-	uint32_t pd_base;		// Base address
+	uint64_t pd_base;		// Base address
 } __attribute__ ((packed));
 
 #endif /* !__ASSEMBLER__ */

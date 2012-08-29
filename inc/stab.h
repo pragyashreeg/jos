@@ -45,7 +45,7 @@ struct Stab {
 	uint8_t n_type;         // type of symbol
 	uint8_t n_other;        // misc info (usually empty)
 	uint16_t n_desc;        // description field
-	uintptr_t n_value;	// value of symbol
+	uint32_t n_value;	// value of symbol
 };
 
 #endif /* !JOS_STAB_H */

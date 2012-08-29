@@ -94,7 +94,7 @@ stab_binsearch(const struct Stab *stabs, int *region_left, int *region_right,
 }
 
 
-// debuginfo_eip(addr, info)
+// debuginfo_rip(addr, info)
 //
 //	Fill in the 'info' structure with information about the specified
 //	instruction address, 'addr'.  Returns 0 if information was found, and
@@ -102,19 +102,19 @@ stab_binsearch(const struct Stab *stabs, int *region_left, int *region_right,
 //	information into '*info'.
 //
 int
-debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
+debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info)
 {
 	const struct Stab *stabs, *stab_end;
 	const char *stabstr, *stabstr_end;
 	int lfile, rfile, lfun, rfun, lline, rline;
 
 	// Initialize *info
-	info->eip_file = "<unknown>";
-	info->eip_line = 0;
-	info->eip_fn_name = "<unknown>";
-	info->eip_fn_namelen = 9;
-	info->eip_fn_addr = addr;
-	info->eip_fn_narg = 0;
+	info->rip_file = "<unknown>";
+	info->rip_line = 0;
+	info->rip_fn_name = "<unknown>";
+	info->rip_fn_namelen = 9;
+	info->rip_fn_addr = addr;
+	info->rip_fn_narg = 0;
 
 	// Find the relevant set of stabs
 	if (addr >= ULIM) {
@@ -132,7 +132,7 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 		return -1;
 
 	// Now we find the right stabs that define the function containing
-	// 'eip'.  First, we find the basic source file containing 'eip'.
+	// 'rip'.  First, we find the basic source file containing 'rip'.
 	// Then, we look in that source file for the function.  Then we look
 	// for the line number.
 
@@ -153,25 +153,25 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 		// stabs[lfun] points to the function name
 		// in the string table, but check bounds just in case.
 		if (stabs[lfun].n_strx < stabstr_end - stabstr)
-			info->eip_fn_name = stabstr + stabs[lfun].n_strx;
-		info->eip_fn_addr = stabs[lfun].n_value;
-		addr -= info->eip_fn_addr;
+			info->rip_fn_name = stabstr + stabs[lfun].n_strx;
+		info->rip_fn_addr = stabs[lfun].n_value;
+		addr -= info->rip_fn_addr;
 		// Search within the function definition for the line number.
 		lline = lfun;
 		rline = rfun;
 	} else {
 		// Couldn't find function stab!  Maybe we're in an assembly
 		// file.  Search the whole file for the line number.
-		info->eip_fn_addr = addr;
+		info->rip_fn_addr = addr;
 		lline = lfile;
 		rline = rfile;
 	}
 	// Ignore stuff after the colon.
-	info->eip_fn_namelen = strfind(info->eip_fn_name, ':') - info->eip_fn_name;
+	info->rip_fn_namelen = strfind(info->rip_fn_name, ':') - info->rip_fn_name;
 
 
 	// Search within [lline, rline] for the line number stab.
-	// If found, set info->eip_line to the right line number.
+	// If found, set info->rip_line to the right line number.
 	// If not found, return -1.
 	//
 	// Hint:
@@ -191,16 +191,16 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	       && (stabs[lline].n_type != N_SO || !stabs[lline].n_value))
 		lline--;
 	if (lline >= lfile && stabs[lline].n_strx < stabstr_end - stabstr)
-		info->eip_file = stabstr + stabs[lline].n_strx;
+		info->rip_file = stabstr + stabs[lline].n_strx;
 
 
-	// Set eip_fn_narg to the number of arguments taken by the function,
+	// Set rip_fn_narg to the number of arguments taken by the function,
 	// or 0 if there was no containing function.
 	if (lfun < rfun)
 		for (lline = lfun + 1;
 		     lline < rfun && stabs[lline].n_type == N_PSYM;
 		     lline++)
-			info->eip_fn_narg++;
+			info->rip_fn_narg++;
 
 	return 0;
 }

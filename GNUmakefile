@@ -33,15 +33,15 @@ TOP = .
 
 # try to infer the correct GCCPREFIX
 ifndef GCCPREFIX
-GCCPREFIX := $(shell if i386-jos-elf-objdump -i 2>&1 | grep '^elf32-i386$$' >/dev/null 2>&1; \
-	then echo 'i386-jos-elf-'; \
-	elif objdump -i 2>&1 | grep 'elf32-i386' >/dev/null 2>&1; \
+GCCPREFIX := $(shell if i386-jos-elf-objdump -i 2>&1 | grep '^elf64-x86-64$$' >/dev/null 2>&1; \
+	then echo 'x86-64-jos-elf-'; \
+	elif objdump -i 2>&1 | grep 'elf64-x86-64' >/dev/null 2>&1; \
 	then echo ''; \
 	else echo "***" 1>&2; \
-	echo "*** Error: Couldn't find an i386-*-elf version of GCC/binutils." 1>&2; \
-	echo "*** Is the directory with i386-jos-elf-gcc in your PATH?" 1>&2; \
-	echo "*** If your i386-*-elf toolchain is installed with a command" 1>&2; \
-	echo "*** prefix other than 'i386-jos-elf-', set your GCCPREFIX" 1>&2; \
+	echo "*** Error: Couldn't find an x86-64-*-elf version of GCC/binutils." 1>&2; \
+	echo "*** Is the directory with x86-64-jos-elf-gcc in your PATH?" 1>&2; \
+	echo "*** If your x86-64-*-elf toolchain is installed with a command" 1>&2; \
+	echo "*** prefix other than 'x86-64-jos-elf-', set your GCCPREFIX" 1>&2; \
 	echo "*** environment variable to that prefix and run 'make' again." 1>&2; \
 	echo "*** To turn off this error, run 'gmake GCCPREFIX= ...'." 1>&2; \
 	echo "***" 1>&2; exit 1; fi)
@@ -49,8 +49,8 @@ endif
 
 # try to infer the correct QEMU
 ifndef QEMU
-QEMU := $(shell if which qemu > /dev/null; \
-	then echo qemu; exit; \
+QEMU := $(shell if which qemu-system-x86_64 > /dev/null; \
+	then echo qemu-system-x86_64; exit; \
 	else \
 	qemu=/Applications/Q.app/Contents/MacOS/i386-softmmu.app/Contents/MacOS/i386-softmmu; \
 	if test -x $$qemu; then echo $$qemu; exit; fi; fi; \
@@ -81,15 +81,16 @@ PERL	:= perl
 # Compiler flags
 # -fno-builtin is required to avoid refs to undefined functions in the kernel.
 # Only optimize to -O1 to discourage inlining, which complicates backtraces.
-CFLAGS := $(CFLAGS) $(DEFS) $(LABDEFS) -O1 -fno-builtin -I$(TOP) -MD
+CFLAGS := $(CFLAGS) $(DEFS) $(LABDEFS) -O0 -fno-builtin -I$(TOP) -MD
 CFLAGS += -fno-omit-frame-pointer
-CFLAGS += -Wall -Wno-format -Wno-unused -Werror -gstabs -m32
+CFLAGS += -Wall -Wno-format -Wno-unused -Werror -gstabs 
 
 # Add -fno-stack-protector if the option exists.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
 # Common linker flags
-LDFLAGS := -m elf_i386
+LDFLAGS := -m elf_x86_64
+BOOT_LDFLAGS := -m elf_x86_64
 
 # Linker flags for JOS user programs
 ULDFLAGS := -T user/user.ld
@@ -113,8 +114,9 @@ all:
 	   $(OBJDIR)/lib/%.o $(OBJDIR)/fs/%.o $(OBJDIR)/net/%.o \
 	   $(OBJDIR)/user/%.o
 
-KERN_CFLAGS := $(CFLAGS) -DJOS_KERNEL -gstabs
-USER_CFLAGS := $(CFLAGS) -DJOS_USER -gstabs
+KERN_CFLAGS := $(CFLAGS) -DJOS_KERNEL -gstabs -mcmodel=large -m64
+BOOT_CFLAGS := $(CFLAGS) -DJOS_KERNEL -gstabs -m64
+USER_CFLAGS := $(CFLAGS) -DJOS_USER -gstabs -mcmodel=large -m64
 
 # Update .vars.X if variable X has changed since the last make run.
 #
@@ -129,6 +131,7 @@ $(OBJDIR)/.vars.%: FORCE
 
 # Include Makefrags for subdirectories
 include boot/Makefrag
+include boot1/Makefrag
 include kern/Makefrag
 
 
@@ -138,8 +141,9 @@ IMAGES = $(OBJDIR)/kern/kernel.img
 QEMUOPTS += $(QEMUEXTRA)
 
 
-.gdbinit: .gdbinit.tmpl
-	sed "s/localhost:1234/localhost:$(GDBPORT)/" < $^ > $@
+.gdbinit:$(OBJDIR)/boot1/boot.asm .gdbinit.tmpl
+	$(eval LONGMODE := $(shell grep -C1 '<jumpto_longmode>:' '$(OBJDIR)/boot1/boot.asm' | sed 's/^\([0-9a-f]*\).*/\1/g'))
+	sed -e "s/localhost:1234/localhost:$(GDBPORT)/" -e "s/jumpto_longmode/*0x$(LONGMODE)/" < $^ > $@
 
 pre-qemu: .gdbinit
 

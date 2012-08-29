@@ -14,7 +14,7 @@ def test_jos():
 def test_printf():
     r.match("6828 decimal is 15254 octal!")
 
-BACKTRACE_RE = r"^ *ebp +f01[0-9a-z]{5} +eip +f0100[0-9a-z]{3} +args +([0-9a-z]+)"
+BACKTRACE_RE = r"^ *rbp +00000000f01[0-9a-z]{5} +rip +00000000f0100[0-9a-z]{3} +args +([0-9a-z]+)"
 
 @test(10, parent=test_jos)
 def test_backtrace_count():
@@ -25,7 +25,7 @@ def test_backtrace_count():
 def test_backtrace_arguments():
     matches = re.findall(BACKTRACE_RE, r.qemu.output, re.MULTILINE)
     assert_equal("\n".join(matches[:7]),
-                 "\n".join("%08x" % n for n in [0,0,1,2,3,4,5]))
+                 "\n".join("%016x" % n for n in [0,0,1,2,3,4,5]))
 
 @test(5, parent=test_jos)
 def test_backtrace_symbols():
