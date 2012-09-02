@@ -24,6 +24,7 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Display the stack backtrace information", mon_backtrace}
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -59,9 +60,32 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
+	cprintf("Stack Backtrace:\n");
+		
+	uint64_t cur_rbp = 0x00000000;
+	uint64_t prev_rbp= 0x00000000; // rbp of the previous stack frame
+	uint64_t rip = 0x00000000;
+	struct Ripdebuginfo info;
+
+	//read current rbp
+	cur_rbp=read_rbp();
+	while(cur_rbp!=0)
+	{
+	  prev_rbp= *((uint64_t*)cur_rbp);
+	  rip = *(((uint64_t*)cur_rbp)+1);
+	  cprintf("  rbp %x rip %x\n", cur_rbp, rip);	
+	  if (debuginfo_rip((uintptr_t)rip,&info )<0)
+	      cprintf("Stab not found\n");
+	  else 
+		{
+			//strip the file name 
+			cprintf("     %.*s :%d:  %.*s+%lx\n",CMDBUF_SIZE, info.rip_file,info.rip_line, info.rip_fn_namelen, info.rip_fn_name , info.rip_fn_addr);
+		}
+	  cur_rbp = prev_rbp;	
+	}
+	
 	return 0;
 }
-
 
 
 /***** Kernel monitor command interpreter *****/
