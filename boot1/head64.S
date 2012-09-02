@@ -1,6 +1,9 @@
 #include <inc/mmu.h>
 
-.set pgtable, 0x8000
+# Translation: cr3->pml4->pdpe->pgdir
+# We set the PTE_MBZ bit in pgdir to skip the last step	
+.set pml4,  0x8000
+.set pdpt,  pml4 + 0x1000
 .text
 .globl _head64
 _head64 :
@@ -9,25 +12,27 @@ _head64 :
     movl $CR4_PAE,%eax
     movl %eax,%cr4
 
-# build an early boot pgtable at 0x8000
+# build an early boot pml4 at 0x8000
 
     #initializing the page tables
-    movl $pgtable,%edi
+    movl $pml4,%edi
     xorl %eax,%eax
     movl $((4096*6)/4),%ecx  # moving these many words to the 6 pages with 4 second level pages + 1 3rd level + 1 4th level pages 
     rep stosl
 
     # creating a 4G boot page table
     # setting the 4th level page table only the first entry needed (PML4)
-    movl $pgtable,%eax
-    leal pgtable + 0x1000, %ebx
+    movl $pml4,%eax
+    leal pdpt, %ebx
     orl $PTE_P,%ebx
     orl $PTE_W,%ebx
     movl %ebx,(%eax)  
 
 
-    #setting the 3rd level page table (PDPE)
-    leal pgtable + 0x1000,%edi
+    # setting the 3rd level page table (PDPE)
+    # 4 entries (counter in ecx), point to the next four physical pages (pgdirs)
+    # pgdirs in 0xa0000--0xd000
+    leal pdpt,%edi
     movl $0x4,%ecx  
     addl $0x1000,%ebx
     pushl %ebx
@@ -39,13 +44,17 @@ _head64 :
     jnz 1b
 
     
-    # setting the 2nd level of page table so that the LA=PA
+    # setting the pgdir so that the LA=PA
+    # 3 pages * 512 entries/page = 1536
     movl $1536,%ecx
-    leal (pgtable + 2*0x1000 + 3*0x1000 - 0x8),%edi
+    # Start at the end and work backwards
+    leal (pml4 + 5*0x1000 - 0x8),%edi
+    # PTE_P|PTE_W|PTE_MBZ
     movl $0x00000183,%eax
   1:
     decl %ecx
     movl %ecx,%ebx
+    # left shift 21 bits = 2 MB
     shl  $21,%ebx
     orl $PTE_P,%ebx
     orl $PTE_W,%ebx
@@ -58,7 +67,7 @@ _head64 :
     jne 1b
 
     #setting the last 2nd level page table such that LA - KERNBASE = PA
-    leal (pgtable + 5*0x1000 + 8*384),%edi  #start with the 384th entry
+    leal (pml4 + 5*0x1000 + 8*384),%edi  #start with the 384th entry
     movl $128,%ecx  # 512 - 384 = 128
     movl $0x00000183,%eax
  1:
@@ -72,7 +81,7 @@ _head64 :
 
 
     # set the cr3 register
-    movl $pgtable,%eax
+    movl $pml4,%eax
     movl %eax, %cr3
     
     # enable the long mode in MSR

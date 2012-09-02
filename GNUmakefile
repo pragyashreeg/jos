@@ -89,7 +89,7 @@ CFLAGS += -Wall -Wno-format -Wno-unused -Werror -gstabs
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
 # Common linker flags
-LDFLAGS := -m elf_x86_64
+LDFLAGS := -m elf_x86_64 -z max-page-size=0x1000
 BOOT_LDFLAGS := -m elf_x86_64
 
 # Linker flags for JOS user programs

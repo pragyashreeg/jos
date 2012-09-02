@@ -28,10 +28,10 @@ typedef uint64_t uintptr_t;
 typedef uint64_t physaddr_t;
 
 // Page numbers are 32 bits long.
-typedef uint32_t ppn_t;
+typedef uint64_t ppn_t;
 
 // size_t is used for memory object sizes.
-typedef uint32_t size_t;
+typedef uint64_t size_t;
 // ssize_t is a signed version of ssize_t, used in case there might be an
 // error return.
 typedef int32_t ssize_t;

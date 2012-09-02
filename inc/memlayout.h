@@ -4,6 +4,7 @@
 #ifndef __ASSEMBLER__
 #include <inc/types.h>
 #include <inc/mmu.h>
+#include <inc/queue.h>
 #endif /* not __ASSEMBLER__ */
 
 /*
@@ -141,8 +142,10 @@
 
 #ifndef __ASSEMBLER__
 
-typedef uint32_t pte_t;
-typedef uint32_t pde_t;
+typedef uint64_t pml4e_t;
+typedef uint64_t pdpe_t;
+typedef uint64_t pte_t;
+typedef uint64_t pde_t;
 
 #endif /* !__ASSEMBLER__ */
 #endif /* !JOS_INC_MEMLAYOUT_H */

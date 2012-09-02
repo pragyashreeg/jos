@@ -30,7 +30,7 @@
  **********************************************************************/
 
 #define SECTSIZE	512
-#define ELFHDR		((struct Elf *) 0x20000) // scratch space
+#define ELFHDR		((struct Elf *) 0x10000) // scratch space
 
 void readsect(void*, uint64_t);
 void readseg(uint64_t, uint64_t, uint64_t);
@@ -38,16 +38,10 @@ void readseg(uint64_t, uint64_t, uint64_t);
 void
 bootmain(void)
 {
-	__asm __volatile(	"movw $0x10,%%ax \n\t"
-				"movw %%ax,%%ds \n\t"
-				"movw %%ax,%%fs \n\t"
-				"movw %%ax,%%gs \n\t"
-				"movw %%ax,%%ss \n\t"
-				"movw %%ax,%%es \n\t"::: "memory");
 	struct Proghdr *ph, *eph;
 
-	// read 1st page off disk
-	readseg((uint64_t) ELFHDR, SECTSIZE*8, 2*SECTSIZE);
+	// read 1st 2 pages off disk
+	readseg((uint64_t) ELFHDR, SECTSIZE*8, 0);
 
 	// is this a valid ELF?
 	if (ELFHDR->e_magic != ELF_MAGIC)
@@ -58,12 +52,12 @@ bootmain(void)
 	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
 	eph = ph + ELFHDR->e_phnum;
 	for (; ph < eph; ph++)
-		readseg(ph->p_va, ph->p_memsz,2*SECTSIZE+ph->p_offset);
+		readseg(ph->p_pa, ph->p_memsz, ph->p_offset);
 
 	// call the entry point from the ELF header
 	// note: does not return!
 
-	((void (*)(void)) (ELFHDR->e_entry & 0xFFFFFF))();
+	((void (*)(void)) (ELFHDR->e_entry))();
 
 bad:
 	outw(0x8A00, 0x8A00);
@@ -72,28 +66,27 @@ bad:
 		/* do nothing */;
 }
 
-// Read 'count' bytes at 'offset' from kernel into virtual address 'va'.
+// Read 'count' bytes at 'offset' from kernel into physical address 'pa'.
 // Might copy more than asked
 void
-readseg(uint64_t va, uint64_t count, uint64_t offset)
+readseg(uint64_t pa, uint64_t count, uint64_t offset)
 {
-	uint64_t end_va;
+	uint64_t end_pa;
 
-	va &= 0xFFFFFF;
-	end_va = va + count;
+	end_pa = pa + count;
 	
 	// round down to sector boundary
-	va &= ~(SECTSIZE - 1);
+	pa &= ~(SECTSIZE - 1);
 
-	// translate from bytes to sectors, and kernel starts at sector 1
-	offset = (offset / SECTSIZE) + 1;
+	// translate from bytes to sectors, and kernel starts at sector 3
+	offset = (offset / SECTSIZE) + 3;
 
 	// If this is too slow, we could read lots of sectors at a time.
 	// We'd write more to memory than asked, but it doesn't matter --
 	// we load in increasing order.
-	while (va < end_va) {
-		readsect((uint8_t*) va, offset);
-		va += SECTSIZE;
+	while (pa < end_pa) {
+		readsect((uint8_t*) pa, offset);
+		pa += SECTSIZE;
 		offset++;
 	}
 }
