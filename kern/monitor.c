@@ -83,7 +83,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	 	 else 
 		{
 			//print the file info
-			cprintf("     %.*s :%d:  %.*s+%016lx\n",CMDBUF_SIZE, info.rip_file,info.rip_line, info.rip_fn_namelen, info.rip_fn_name , rip-info.rip_fn_addr/*offset*/);
+			cprintf("    %.*s:%d: %.*s+%016lx\n",CMDBUF_SIZE, info.rip_file,info.rip_line, info.rip_fn_namelen, info.rip_fn_name , rip-info.rip_fn_addr/*offset*/);
 		}
 		cur_rbp = prev_rbp;	
 	}
