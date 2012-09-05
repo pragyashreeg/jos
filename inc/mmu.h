@@ -15,16 +15,16 @@
 
 // A linear address 'la' has a three-part structure as follows:
 //
-// +--------10------+-------10-------+---------12----------+
-// | Page Directory |   Page Table   | Offset within Page  |
-// |      Index     |      Index     |                     |
-// +----------------+----------------+---------------------+
-//  \--- PDX(la) --/ \--- PTX(la) --/ \---- PGOFF(la) ----/
-//  \----------- VPN(la) -----------/
+// +-------9--------+-------9--------+--------9-------+--------9-------+----------12---------+
+// |Page Map Level 4|Page Directory  | Page Directory |   Page Table   | Offset within Page  |
+// |      Index     |  Pointer Index |      Index     |      Index     |                     |
+// +----------------+----------------+----------------+--------------------------------------+
+// \----PML4(la)----/\--- PDPE(la)---/\--- PDX(la) --/ \--- PTX(la) --/ \---- PGOFF(la) ----/
+//  \------------------------------ VPN(la) -------------------------/
 //
-// The PDX, PTX, PGOFF, and VPN macros decompose linear addresses as shown.
-// To construct a linear address la from PDX(la), PTX(la), and PGOFF(la),
-// use PGADDR(PDX(la), PTX(la), PGOFF(la)).
+// The PML4, PDPE, PDX, PTX, PGOFF, and VPN macros decompose linear addresses as shown.
+// To construct a linear address la from PML4(la), PDPE(la), PDX(la), PTX(la), and PGOFF(la),
+// use PGADDR(PML4(la), PDPE(la), PDX(la), PTX(la), PGOFF(la)).
 
 // page number field of address
 #define PPN(pa)		(((uintptr_t) (pa)) >> PTXSHIFT)
@@ -32,7 +32,9 @@
 
 // page directory index
 #define PDX(la)		((((uintptr_t) (la)) >> PDXSHIFT) & 0x1FF)
-#define VPD(la)		PDX(la)		// used to index into vpd[]
+#define VPD(la)		(((uintptr_t) (la)) >> PDXSHIFT)		// used to index into vpd[]
+#define VPDPE(la)   (((uintptr_t) (la)) >> PDPESHIFT)
+#define VPML4E(la)  (((uintptr_t) (la)) >> PML4SHIFT)
 
 #define PML4(la)  ((((uintptr_t) (la)) >> PML4SHIFT) & 0x1FF)
 
