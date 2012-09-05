@@ -18,7 +18,6 @@ static __inline void outsl(int port, const void *addr, int cnt) __attribute__((a
 static __inline void outl(int port, uint32_t data) __attribute__((always_inline));
 static __inline void invlpg(void *addr) __attribute__((always_inline));
 static __inline void lidt(void *p) __attribute__((always_inline));
-static __inline void lgdt(void *p) __attribute__((always_inline));
 static __inline void lldt(uint16_t sel) __attribute__((always_inline));
 static __inline void ltr(uint16_t sel) __attribute__((always_inline));
 static __inline void lcr0(uint64_t val) __attribute__((always_inline));
@@ -157,11 +156,6 @@ lldt(uint16_t sel)
 }
 
 static __inline void
-lgdt(void *p)
-{
-	__asm __volatile("lgdt (%0)" : : "r" (p));
-}
-static __inline void
 ltr(uint16_t sel)
 {
 	__asm __volatile("ltr %0" : : "r" (sel));
@@ -226,7 +220,7 @@ tlbflush(void)
 }
 
 static __inline uint64_t
-read_eflags(void)
+read_rflags(void)
 {
         uint64_t rflags;
         __asm __volatile("pushfq; popq %0" : "=r" (rflags));
