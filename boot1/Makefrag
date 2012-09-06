@@ -20,7 +20,7 @@ $(OBJDIR)/boot1/%.o: boot1/%.S
 
 $(OBJDIR)/boot1/boot: $(BOOT_OBJS)
 	@echo + ld $(OBJDIR)/boot1/boot
-	$(V)$(LD) $(LDFLAGS) -N -e start -Ttext 0x1005 -o $@.out $^
+	$(V)$(LD) $(LDFLAGS) -N -e start -Ttext 0x1000 -o $@.out $^
 	$(V)$(OBJDUMP) -S $@.out >$@.asm
 	$(V)$(OBJCOPY) -S -O binary $@.out $@
 
