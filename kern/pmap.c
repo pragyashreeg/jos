@@ -11,11 +11,12 @@
 
 #define BOOT_PAGE_TABLE_START 0xf0008000
 #define BOOT_PAGE_TABLE_END   0xf000e000
+#define VMEMTOP 0xffffffff
 // These variables are set by i386_detect_memory()
 size_t npages;			// Amount of physical memory (in pages)
 static size_t npages_basemem;	// Amount of base memory (in pages)
 
-// These variables are set in mem_init()
+// These variables are set in x64_vm_init()
 pml4e_t *boot_pml4e;		// Kernel's initial page directory
 physaddr_t boot_cr3;		// Physical address of boot time page directory
 struct Page *pages;		// Physical page state array
@@ -92,15 +93,35 @@ boot_alloc(uint32_t n)
 	if (!nextfree) {
 		extern char end[];
 		nextfree = ROUNDUP((char *) end, PGSIZE);
+	
+	cprintf ("%p, %p\n",end, PADDR(end) );
+	//	cprintf ("%p n=%u \n",nextfree, n );
 	}
-
+	
+	
 	// Allocate a chunk large enough to hold 'n' bytes, then update
 	// nextfree.  Make sure nextfree is kept aligned
 	// to a multiple of PGSIZE.
 	//
 	// LAB 2: Your code here.
-
-	return NULL;
+	//TODO:How to verify the Upper memory limit ?? is the one implemented good enough ??
+	
+	if (n>0){
+		result = nextfree;
+		nextfree = (char *)nextfree + n;
+		nextfree = ROUNDUP ((char *)nextfree, PGSIZE);
+		if ((uint64_t)nextfree > VMEMTOP){ //4 GIGS
+			panic("No Memory");
+		}
+	}else if (n==0){
+		result = nextfree;
+	}else {
+		cprintf("Invalid argument : Cant allocate -ve memory address");
+		result = NULL;
+	}
+	
+	cprintf("result =%p nextfree = %p\n", result, nextfree);
+	return result;
 }
 
 // Set up a four-level page table:
@@ -125,7 +146,7 @@ x64_vm_init(void)
 	//panic("i386_vm_init: This function is not finished\n");
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
-	panic("x64_vm_init: this function is not finished\n");
+//	panic("x64_vm_init: this function is not finished\n");
 	pml4e = boot_alloc(PGSIZE);
 	memset(pml4e, 0, PGSIZE);
 	boot_pml4e = pml4e;
@@ -138,16 +159,19 @@ x64_vm_init(void)
 	// array.  'npage' is the number of physical pages in memory.
 	// User-level programs will get read-only access to the array as well.
 	// Your code goes here:
-
+	pages = boot_alloc(sizeof(struct Page)*npages);
+	cprintf("pages start address %p, end address %p  \n",pages, &pages[npages-1]);
+	
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
 	// up the list of free physical pages. Once we've done so, all further
 	// memory management will go through the page_* functions. In
 	// particular, we can now map memory using boot_map_segment or page_insert
+	page_free_list=NULL;
 	page_init();
 	check_page_alloc();
+	panic("Stop");
 	page_check();
-
 	//////////////////////////////////////////////////////////////////////
 	// Now we set up virtual memory 
 	//////////////////////////////////////////////////////////////////////
@@ -224,12 +248,49 @@ page_init(void)
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
 	// NB: Remember to mark the memory used for initial boot page table i.e (va>=BOOT_PAGE_TABLE_START && va < BOOT_PAGE_TABLE_END) as in-use (not free)
+	
 	size_t i;
-	for (i = 0; i < npages; i++) {
+	struct Page *pp0;
+	for (i =0 ; i < npages; i++) { 
+
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
 		page_free_list = &pages[i];
+
 	}
+			
+	//}
+	//page 0
+	pages[0].pp_ref++;
+	pages[1].pp_link=NULL;
+
+	// hole [IOPHYSMEM, EXTPHYSMEM]
+	// 257th == 160.pp_link
+	pages[PPN(EXTPHYSMEM)+1].pp_link=pages[PPN(IOPHYSMEM)].pp_link;
+	//Logging :
+	//cprintf("%d ", PPN(EXTPHYSMEM));	
+	//cprintf("%p ", pages[PPN(EXTPHYSMEM)+1].pp_link);
+	//cprintf("%d ",PPN(IOPHYSMEM) );
+	//cprintf("%p\n ", pages[PPN(IOPHYSMEM)].pp_link);
+	
+	//[EXTPHYSMEM, ...]
+	//kernel
+	//Logging cprintf("kernel base : %p , kernel end: %p\n", KERNBASE,ROUNDUP(&pages[npages], PGSIZE) );	
+ 	//348th == 0.pp_link
+	//cprintf("%d ", PPN(PADDR(KERNBASE)));	
+	//cprintf("%d \n",PPN(PADDR(ROUNDUP(&pages[npages], PGSIZE))));
+	pages[PPN(PADDR(ROUNDUP(&pages[npages], PGSIZE)))+1].pp_link=pages[PPN(PADDR(KERNBASE))].pp_link;
+	
+	// [BOOT_PAGE_TABLE_START, BOOT_PAGE_TABLE_END]
+	//cprintf("%d ", PPN(PADDR(BOOT_PAGE_TABLE_END)));
+	//cprintf("%d \n", PPN(PADDR(BOOT_PAGE_TABLE_START)));
+	pages[PPN(PADDR(BOOT_PAGE_TABLE_END))+1].pp_link= pages[PPN(PADDR(BOOT_PAGE_TABLE_START))].pp_link;
+	/*
+	for(i=0; i <npages; i++){
+		cprintf("%d: ", i);
+		cprintf("%p\n", pages[i].pp_link);
+	}*/
+	
 }
 
 //
@@ -243,9 +304,15 @@ page_init(void)
 // Hint: use page2kva and memset
 struct Page *
 page_alloc(int alloc_flags)
-{
-	// Fill this function in
-	return 0;
+{	struct Page *pp=NULL;
+	if (page_free_list){
+		pp=page_free_list;
+		page_free_list=page_free_list->pp_link;
+		if(alloc_flags & ALLOC_ZERO){
+			memset(page2kva(pp), '\0', PGSIZE);		
+		}	
+	}
+	return pp;
 }
 
 //
@@ -265,7 +332,8 @@ page_initpp(struct Page *pp)
 	void
 page_free(struct Page *pp)
 {
-	// Fill this function in
+	pp->pp_link=page_free_list;
+	page_free_list=pp;
 }
 
 //
