@@ -267,6 +267,12 @@ page_init(void)
 	// hole [IOPHYSMEM, EXTPHYSMEM]
 	// 257th == 160.pp_link
 	pages[PPN(EXTPHYSMEM)+1].pp_link=pages[PPN(IOPHYSMEM)].pp_link;
+	for (i=PPN(IOPHYSMEM);i<=PPN(EXTPHYSMEM);i++)
+	{
+		pages[i].pp_link=NULL;
+		pages[i].pp_ref=-1;
+	}
+	
 	//Logging :
 	cprintf("PPN:EXTPHYSMEM: %d ", PPN(EXTPHYSMEM));	
 	//cprintf("%p ", pages[PPN(EXTPHYSMEM)+1].pp_link);
@@ -274,18 +280,30 @@ page_init(void)
 	//cprintf("%p\n ", pages[PPN(IOPHYSMEM)].pp_link);
 	
 	//[EXTPHYSMEM, ...]
-	//kernel
-	//Logging 
+	//kernel text and EXTPHYSMEM align
+	//Logging.   
 	cprintf("kernel start: %p , kernel end: %p\n", KERNBASE+0x100000,ROUNDUP(&pages[npages], PGSIZE) );	
  	//348th == 0.pp_link
 	cprintf("PPN: KERNSTART: %d ", PPN(PADDR(KERNBASE+0x100000)));	
 	cprintf("KERNEND: %d \n",PPN(PADDR(ROUNDUP(&pages[npages], PGSIZE))));
 	pages[PPN(PADDR(ROUNDUP(&pages[npages], PGSIZE)))+1].pp_link=pages[PPN(PADDR(KERNBASE))].pp_link;
+	for (i=PPN(PADDR(KERNBASE));i<=PPN(PADDR(ROUNDUP(&pages[npages], PGSIZE)));i++)
+        {
+                pages[i].pp_link=NULL;
+		pages[i].pp_ref=1;
+        }
 	
+
 	// [BOOT_PAGE_TABLE_START, BOOT_PAGE_TABLE_END]
 	//cprintf("%d ", PPN(PADDR(BOOT_PAGE_TABLE_END)));
 	//cprintf("%d \n", PPN(PADDR(BOOT_PAGE_TABLE_START)));
 	pages[PPN(PADDR(BOOT_PAGE_TABLE_END))+1].pp_link= pages[PPN(PADDR(BOOT_PAGE_TABLE_START))].pp_link;
+	for(i=PPN(PADDR(BOOT_PAGE_TABLE_START));i<PPN(PADDR(BOOT_PAGE_TABLE_END));i++)
+	{
+		pages[i].pp_ref=1;
+		pages[i].pp_link=NULL;
+
+	}
 	/*
 	for(i=0; i <npages; i++){
 		cprintf("%d: ", i);
