@@ -170,8 +170,9 @@ x64_vm_init(void)
 	page_free_list=NULL;
 	page_init();
 	check_page_alloc();
-	panic("Stop");
+	cprintf("Size of uint64_t : %d", sizeof(uint64_t));
 	page_check();
+	panic("Stop");
 	//////////////////////////////////////////////////////////////////////
 	// Now we set up virtual memory 
 	//////////////////////////////////////////////////////////////////////
@@ -281,7 +282,7 @@ page_init(void)
 	
 	//[EXTPHYSMEM, ...]
 	//kernel text and EXTPHYSMEM align
-	//Logging.   
+	//Logging.//TODO : kernbase to kerntart :)    
 	cprintf("kernel start: %p , kernel end: %p\n", KERNBASE+0x100000,ROUNDUP(&pages[npages], PGSIZE) );	
  	//348th == 0.pp_link
 	cprintf("PPN: KERNSTART: %d ", PPN(PADDR(KERNBASE+0x100000)));	
@@ -327,7 +328,7 @@ page_alloc(int alloc_flags)
 	if (page_free_list){
 		pp=page_free_list;
 		page_free_list=page_free_list->pp_link;
-		if(alloc_flags & ALLOC_ZERO){
+		if(alloc_flags && ALLOC_ZERO){
 			memset(page2kva(pp), '\0', PGSIZE);		
 		}	
 	}
@@ -351,6 +352,7 @@ page_initpp(struct Page *pp)
 	void
 page_free(struct Page *pp)
 {
+	//Your code goes here
 	pp->pp_link=page_free_list;
 	page_free_list=pp;
 }
@@ -394,7 +396,35 @@ page_decref(struct Page* pp)
 pte_t *
 pml4e_walk(pml4e_t *pml4e, const void *va, int create)
 {
-	return NULL;
+	struct Page *pp;
+	pdpe_t *pdpe;
+	pte_t *pte;
+	int index=PML4(va);
+	cprintf ("plm4 : %x ", pml4e);
+	cprintf("PLM4 index : %d", index);
+	pdpe=(pdpe_t *) *(pml4e+index); // get the address of the index. and everything is just 8B
+	cprintf("pdpe : %x\n", pdpe );
+	if (!pdpe){// no pdpe entry
+		cprintf("pdpe 0, ");
+		if (create){// create pdpe entry
+			cprintf("creating new pdpe, ");
+			pp=page_alloc(true);
+			if (pp==NULL){
+				cprintf("pp is NULL\n ");
+				return NULL;
+			}
+			cprintf("new page allocated for pdpe, ");
+			pp->pp_ref++;
+			pdpe=(pdpe_t *)page2pa(pp);//TODO :permissions?? !
+			*(pml4e+index)=(pdpe_t) pdpe;
+			cprintf("in create pdpe entry, pml4 entry: %x\n", *(pml4e+index));
+		}else return NULL;
+	}
+	cprintf("pdpe entry found");			
+	if((pte=pdpe_walk(pdpe, va, create))==NULL){
+		if(pp!=NULL&&--pp->pp_ref==0) page_free(pp);
+			return NULL;
+	}else return pte;
 }
 
 
@@ -404,8 +434,26 @@ pml4e_walk(pml4e_t *pml4e, const void *va, int create)
 // Hints are the same as in pml4e_walk
 pte_t *
 pdpe_walk(pdpe_t *pdpe,const void *va,int create){
-
-	return NULL;
+	struct Page *pp;
+	pde_t *pgdir;
+	pte_t * pte=NULL;
+	int index=PDPE(va);
+	cprintf("PDPE index : %d\n", index);
+	pgdir = (pdpe_t *)*(pdpe+index);
+	if(!pgdir){
+		if (create){
+			pp=page_alloc(true);
+			if (pp==NULL) return NULL;
+			pp->pp_ref++;
+			pgdir=(pde_t *)page2pa(pp);
+			*(pdpe+index)=(pde_t)pgdir;
+		}else return NULL;
+	}
+	if ((pte=pgdir_walk(pgdir, va, create))==NULL){
+		if(pp!=NULL && --pp->pp_ref == 0) page_free(pp);
+			return NULL;	
+	}else return pte;
+			
 }
 // Given 'pgdir', a pointer to a page directory, pgdir_walk returns
 // a pointer to the page table entry (PTE). 
@@ -415,8 +463,22 @@ pdpe_walk(pdpe_t *pdpe,const void *va,int create){
 	pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
-	// Fill this function in
-	return NULL;
+	struct Page *pp;
+        pte_t * pte=NULL;
+        int index=PDX(va);
+        cprintf("PDX index : %d\n", index);
+        pte =(pde_t *) *(pgdir+index);
+        if(!pte){
+                if (create){
+                        pp=page_alloc(true);
+                        if (pp==NULL) return NULL;
+                        pp->pp_ref++;
+                        pte=(pte_t *)page2pa(pp);
+                        *(pgdir+index)=(pte_t)pte;
+                }else return NULL;
+        }
+        return pte;
+
 }
 
 //
@@ -463,7 +525,40 @@ boot_map_segment(pml4e_t *pml4e, uintptr_t la, size_t size, physaddr_t pa, int p
 int
 page_insert(pml4e_t *pml4e, struct Page *pp, void *va, int perm)
 {
-	// Fill this function in
+	//
+        int res=-E_NO_MEM, index;
+        uint64_t pte_entry;
+        physaddr_t pp_physaddr;
+        pte_t * pte=NULL;
+        if (!pml4e|| !pp){
+                cprintf("failed to insert page in page table entry\n");
+                return res;
+        }
+
+        pte=pml4e_walk(pml4e, va, true);
+        if (pte==NULL) {
+		cprintf("failed to insert page, out of memory: res = %d\n",res );
+		return res;
+	}
+        // calculate the offset at pte;
+        index= PTX(va);
+        pte_entry=(uint64_t)*(pte+index);
+	cprintf("pte_entry : %x\n", pte_entry);
+        if (pte_entry) { //there is already an entry
+                //remove and invaidate , TODO elegant handling
+                page_remove(pml4e, va);
+		pte = pml4e_walk(pml4e, va, false);
+        }
+        assert(pte_entry==0);
+        //new entry;
+        pp_physaddr = page2pa(pp);
+        pte_entry =(uint64_t) (pp_physaddr << 12 )+ ((perm|PTE_P)& 0xFFF);
+	cprintf("virtual address: %x ",va );
+	cprintf("physical address: %x", pp_physaddr);
+	cprintf("pte entry:%x\n", pte_entry);
+	*(pte+index) = (uint64_t)pte_entry;
+	// increment reference 
+	++pp->pp_ref;
 	return 0;
 }
 
@@ -482,7 +577,32 @@ page_insert(pml4e_t *pml4e, struct Page *pp, void *va, int perm)
 page_lookup(pml4e_t *pml4e, void *va, pte_t **pte_store)
 {
 	// Fill this function in
-	return NULL;
+	struct Page * pp;
+	pte_t *pte;
+	int index;
+	uint64_t *pte_entry;
+	physaddr_t page_physaddr;	
+
+	pte=pml4e_walk(pml4e, va, false);
+	if (pte==NULL) {
+		cprintf("page look up failed, pml4_walk returned NULL");
+		return NULL;
+	}	
+	cprintf("page lookup: pte: %x\n", pte);
+	
+	index= PTX(va);
+	pte_entry =(uint64_t *) *(pte+index);
+	if (!pte_entry ){
+		cprintf("No page mapped for this virtual address\n");
+		return NULL;
+	}
+	if (!pte_store){
+		*pte_store = (pte_t *) pte_entry;
+		cprintf("stored pte : %x\n", *pte_store);
+	}
+	page_physaddr = (uint64_t)pte_entry >> 12;
+	pp = pa2page(page_physaddr);
+	return pp;
 }
 
 //
@@ -504,6 +624,30 @@ page_lookup(pml4e_t *pml4e, void *va, pte_t **pte_store)
 page_remove(pml4e_t *pml4e, void *va)
 {
 	// Fill this function in
+//        struct Page *pp;
+        uint64_t pte_entry;
+        pdpe_t * pdpe;
+        pde_t *pgdir;
+        pte_t *pte = NULL;
+        struct Page *pp=pages[PPN(PADDR(va))];
+        pte=pml4e_walk(pml4e,va,true);
+	 
+        if(pte){
+                pte_entry = (uint64_t)*(pte+PML4(va));
+                if(pte_entry){
+                        pp.pp_ref--;
+                        if(pp.ppref==0){
+                                page_free(pp);
+                                pte_entry=0;
+                                pdpe=(pdpe_t *) *(pml4e+PML4(va));
+                                pgdir=(pde_t *) *(pdpe+PDPE(va));
+                                tlb_invalidate(pde_t *pgdir, void *va);
+
+                        }
+
+                }
+        }
+
 }
 
 //
@@ -740,6 +884,8 @@ page_check(void)
 	//cprintf("pp2 ref count = %d\n",pp2->pp_ref);
 	assert(page_insert(boot_pml4e, pp1, 0x0, 0) == 0);
 	assert((PTE_ADDR(boot_pml4e[0]) == page2pa(pp0) || PTE_ADDR(boot_pml4e[0]) == page2pa(pp2) || PTE_ADDR(boot_pml4e[0]) == page2pa(pp3) ));
+	cprintf(" check va output: %x  ", check_va2pa(boot_pml4e, 0x0));
+	cprintf ("%x \n", page2pa(pp1));
 	assert(check_va2pa(boot_pml4e, 0x0) == page2pa(pp1));
 	assert(pp1->pp_ref == 1);
 	assert(pp0->pp_ref == 1);
