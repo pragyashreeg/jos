@@ -268,17 +268,18 @@ page_init(void)
 	// 257th == 160.pp_link
 	pages[PPN(EXTPHYSMEM)+1].pp_link=pages[PPN(IOPHYSMEM)].pp_link;
 	//Logging :
-	//cprintf("%d ", PPN(EXTPHYSMEM));	
+	cprintf("PPN:EXTPHYSMEM: %d ", PPN(EXTPHYSMEM));	
 	//cprintf("%p ", pages[PPN(EXTPHYSMEM)+1].pp_link);
-	//cprintf("%d ",PPN(IOPHYSMEM) );
+	cprintf("IOPHYSMEM: %d \n",PPN(IOPHYSMEM) );
 	//cprintf("%p\n ", pages[PPN(IOPHYSMEM)].pp_link);
 	
 	//[EXTPHYSMEM, ...]
 	//kernel
-	//Logging cprintf("kernel base : %p , kernel end: %p\n", KERNBASE,ROUNDUP(&pages[npages], PGSIZE) );	
+	//Logging 
+	cprintf("kernel start: %p , kernel end: %p\n", KERNBASE+0x100000,ROUNDUP(&pages[npages], PGSIZE) );	
  	//348th == 0.pp_link
-	//cprintf("%d ", PPN(PADDR(KERNBASE)));	
-	//cprintf("%d \n",PPN(PADDR(ROUNDUP(&pages[npages], PGSIZE))));
+	cprintf("PPN: KERNSTART: %d ", PPN(PADDR(KERNBASE+0x100000)));	
+	cprintf("KERNEND: %d \n",PPN(PADDR(ROUNDUP(&pages[npages], PGSIZE))));
 	pages[PPN(PADDR(ROUNDUP(&pages[npages], PGSIZE)))+1].pp_link=pages[PPN(PADDR(KERNBASE))].pp_link;
 	
 	// [BOOT_PAGE_TABLE_START, BOOT_PAGE_TABLE_END]
