@@ -633,8 +633,9 @@ page_insert(pml4e_t *pml4e, struct Page *pp, void *va, int perm)
                 cprintf("failed to insert page in page table entry\n");
                 return res;
         }
+	
 
-        ptep=pml4e_walk(pml4e, va, true);
+	ptep=pml4e_walk(pml4e, va, true);
         if (ptep==NULL) {
 		cprintf("failed to insert page, out of memory: res = %d\n",res );
 		return res;
@@ -648,10 +649,22 @@ page_insert(pml4e_t *pml4e, struct Page *pp, void *va, int perm)
 		cprintf("Entry already present\nAfter page remove ptep contains: %x\n",*ptep);
         }
         assert(*ptep==0);
+
+	
         //new entry;
         pp_physaddr = page2pa(pp);
         //pte =(((uintptr_t)pp_physaddr << 12 ))+ ((perm|PTE_P)& 0xFFF);
 	//pte = PTENTRY(pp_physaddr)+((perm|PTE_P)& 0xFFF);
+
+	
+	//CHANGE PERMS for ENTRIES IN PMLL4 only, not sure if others need to be changed as well
+        if ((perm|PTE_P)!= PTE_P){
+		cprintf("restricted permission mode, perms : %x\n", perm);
+		pml4e[PML4(va)] |= (perm|PTE_P);
+		cprintf("entry in PML4 at index %x is : %x", PML4(va), pml4e[PML4(va)]); 
+			
+	}
+
 	pte=pp_physaddr|(perm|PTE_P);
 	cprintf("Inserting Page frame,physical address  %x in PT \n ", pp_physaddr);
 	cprintf("pte entry,shl 12 add flags,Flags %x:%x\n", pte, perm|PTE_P);
