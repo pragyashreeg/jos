@@ -71,7 +71,7 @@
  *    UTEMP -------->  +------------------------------+ 0x00400000      --+
  *                     |       Empty Memory (*)       |                   |
  *                     | - - - - - - - - - - - - - - -|                   |
- *                     |  User STAB Data (optional)   |                 PTSIZE
+ *                     |  User STAB Data (optional)   |                2* PTSIZE
  *    USTABDATA ---->  +------------------------------+ 0x00200000        |
  *                     |       Empty Memory (*)       |                   |
  *    0 ------------>  +------------------------------+                 --+
@@ -132,12 +132,13 @@
 #define UTEXT		(4*PTSIZE)
 
 // Used for temporary page mappings.  Typed 'void*' for convenience
-#define UTEMP		((void*) PTSIZE)
+
+#define UTEMP		((void*) ((int)(2*PTSIZE)))
 // Used for temporary page mappings for the user page-fault handler
 // (should not conflict with other temporary page mappings)
 #define PFTEMP		(UTEMP + PTSIZE - PGSIZE)
 // The location of the user-level STABS data structure
-#define USTABDATA	(PTSIZE / 2)
+#define USTABDATA	(PTSIZE)
 
 #ifndef __ASSEMBLER__
 
@@ -163,6 +164,8 @@ typedef uint64_t pde_t;
  */
 extern volatile pte_t vpt[];     // VA of "virtual page table"
 extern volatile pde_t vpd[];     // VA of current page directory
+extern volatile pde_t vpde[];     // VA of current page directory pointer
+extern volatile pde_t vpml4e[];     // VA of current page map level 4
 #endif
 
 LIST_HEAD(Page_list,Page);

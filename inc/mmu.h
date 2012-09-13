@@ -81,6 +81,9 @@
 // hardware, so user processes are allowed to set them arbitrarily.
 #define PTE_AVAIL	0xE00	// Available for software use
 
+// Flags in PTE_SYSCALL may be used only in system calls. (Others may not.)
+#define PTE_SYSCALL (PTE_AVAIL | PTE_P | PTE_W | PTE_U)
+
 // Only flags in PTE_USER may be used in system calls.
 #define PTE_USER	(PTE_AVAIL | PTE_P | PTE_W | PTE_U)
 

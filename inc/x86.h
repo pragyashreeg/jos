@@ -3,6 +3,7 @@
 
 #include <inc/types.h>
 
+static inline uint32_t xchg(volatile uint32_t *addr,uint32_t newval);
 static __inline void breakpoint(void) __attribute__((always_inline));
 static __inline uint8_t inb(int port) __attribute__((always_inline));
 static __inline void insb(int port, void *addr, int cnt) __attribute__((always_inline));
@@ -272,6 +273,15 @@ cpuid(uint32_t info, uint32_t *eaxp, uint32_t *ebxp, uint32_t *ecxp, uint32_t *e
 		*edxp = edx;
 }
 
+static inline uint32_t
+xchg(volatile uint32_t *addr,uint32_t newval){
+	uint32_t result;
+	__asm __volatile("lock; xchgl %0, %1":
+	"+m" (*addr), "=a" (result):
+	"1"(newval):
+	"cc");
+	return result;
+}
 static __inline uint64_t
 read_tsc(void)
 {
