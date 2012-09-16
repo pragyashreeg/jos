@@ -431,6 +431,8 @@ pdpe_walk(pdpe_t *pdpe,const void *va,int create){
         pde_t *pgdirp;
         pte_t *ptep=NULL;
         int index=PDPE(va);
+	//before dereferencing we convert pdpe from pa to pa
+	pdpe = (pdpe_t*)KADDR((uint64_t)pdpe);
         pgdirp = (pde_t *)*(pdpe+index);
 	pgdirp = (pde_t *)PTE_ADDR(pgdirp);
         if(!pgdirp){
@@ -481,6 +483,8 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 	struct Page *pp;
         pte_t * ptep=NULL;
         int index=PDX(va);
+
+	pgdir =(pde_t *) KADDR((uint64_t)pgdir);
         ptep =(pte_t *) *(pgdir+index);
 	ptep= (pte_t *)PTE_ADDR(ptep);
         if(!ptep){
@@ -578,27 +582,21 @@ page_insert(pml4e_t *pml4e, struct Page *pp, void *va, int perm)
         if (!pml4e|| !pp){
                 return res;
         }
-	
-
 	ptep=pml4e_walk(pml4e, va, true);
         if (ptep==NULL) {
 		return res;
 	}
-	ptep=(pte_t *)PADDR((uint64_t)ptep);
 	pte=(pte_t)*ptep;
         if (pte) { //there is already an entry
                 //remove and invaidate , TODO elegant handling
                 page_remove(pml4e, va);
         }
         assert(*ptep==0);
-
 	
         //new entry;
         pp_physaddr = page2pa(pp);
-	
 	//CHANGE PERMS for ENTRIES IN PMLL4 only, not sure if others need to be changed as well
 	pml4e[PML4(va)] |= (perm|PTE_P);
-
 	pte=pp_physaddr|(perm|PTE_P);
 	*ptep = pte;
 	// increment reference 
