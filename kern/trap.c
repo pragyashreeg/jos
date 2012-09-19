@@ -114,11 +114,11 @@ print_trapframe(struct Trapframe *tf)
 			tf->tf_err & 1 ? "protection" : "not-present");
 	else
 		cprintf("\n");
-	cprintf("  rip  0x%08x\n", tf->tf_eip);
+	cprintf("  rip  0x%08x\n", tf->tf_rip);
 	cprintf("  cs   0x----%04x\n", tf->tf_cs);
 	cprintf("  flag 0x%08x\n", tf->tf_eflags);
 	if ((tf->tf_cs & 3) != 0) {
-		cprintf("  rsp  0x%08x\n", tf->tf_esp);
+		cprintf("  rsp  0x%08x\n", tf->tf_rsp);
 		cprintf("  ss   0x----%04x\n", tf->tf_ss);
 	}
 }
@@ -134,13 +134,13 @@ print_regs(struct PushRegs *regs)
 	cprintf("  r10  0x%08x\n", regs->reg_r10);
 	cprintf("  r9  0x%08x\n", regs->reg_r9);
 	cprintf("  r8  0x%08x\n", regs->reg_r8);
-	cprintf("  rdi  0x%08x\n", regs->reg_edi);
-	cprintf("  rsi  0x%08x\n", regs->reg_esi);
-	cprintf("  rbp  0x%08x\n", regs->reg_ebp);
-	cprintf("  rbx  0x%08x\n", regs->reg_ebx);
-	cprintf("  rdx  0x%08x\n", regs->reg_edx);
-	cprintf("  rcx  0x%08x\n", regs->reg_ecx);
-	cprintf("  rax  0x%08x\n", regs->reg_eax);
+	cprintf("  rdi  0x%08x\n", regs->reg_rdi);
+	cprintf("  rsi  0x%08x\n", regs->reg_rsi);
+	cprintf("  rbp  0x%08x\n", regs->reg_rbp);
+	cprintf("  rbx  0x%08x\n", regs->reg_rbx);
+	cprintf("  rdx  0x%08x\n", regs->reg_rdx);
+	cprintf("  rcx  0x%08x\n", regs->reg_rcx);
+	cprintf("  rax  0x%08x\n", regs->reg_rax);
 }
 
 static void
@@ -216,7 +216,7 @@ page_fault_handler(struct Trapframe *tf)
 
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",
-		curenv->env_id, fault_va, tf->tf_eip);
+		curenv->env_id, fault_va, tf->tf_rip);
 	print_trapframe(tf);
 	env_destroy(curenv);
 }

@@ -38,11 +38,13 @@ int
 vcprintf(const char *fmt, va_list ap)
 {
 	struct printbuf b;
-
+	va_list aq;
+	va_copy(aq,ap);
 	b.idx = 0;
 	b.cnt = 0;
-	vprintfmt((void*)putch, &b, fmt, ap);
+	vprintfmt((void*)putch, &b, fmt, aq);
 	sys_cputs(b.buf, b.idx);
+	va_end(aq);
 
 	return b.cnt;
 }
@@ -52,10 +54,11 @@ cprintf(const char *fmt, ...)
 {
 	va_list ap;
 	int cnt;
-
+	va_list aq;
 	va_start(ap, fmt);
-	cnt = vcprintf(fmt, ap);
-	va_end(ap);
+	va_copy(aq,ap);
+	cnt = vcprintf(fmt, aq);
+	va_end(aq);
 
 	return cnt;
 }

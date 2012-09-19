@@ -276,14 +276,16 @@ sprintputch(int ch, struct sprintbuf *b)
 int
 vsnprintf(char *buf, int n, const char *fmt, va_list ap)
 {
+	va_list aq;
+	va_copy(aq,ap);
 	struct sprintbuf b = {buf, buf+n-1, 0};
 
 	if (buf == NULL || n < 1)
 		return -E_INVAL;
 
 	// print the string to the buffer
-	vprintfmt((void*)sprintputch, &b, fmt, ap);
-
+	vprintfmt((void*)sprintputch, &b, fmt, aq);
+	va_end(aq);
 	// null terminate the buffer
 	*b.buf = '\0';
 
@@ -295,10 +297,11 @@ snprintf(char *buf, int n, const char *fmt, ...)
 {
 	va_list ap;
 	int rc;
-
+	va_list aq;
 	va_start(ap, fmt);
-	rc = vsnprintf(buf, n, fmt, ap);
-	va_end(ap);
+	va_copy(aq,ap);
+	rc = vsnprintf(buf, n, fmt, aq);
+	va_end(aq);
 
 	return rc;
 }
