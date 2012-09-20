@@ -204,7 +204,11 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info)
 	//	Look at the STABS documentation and <inc/stab.h> to find
 	//	which one.
 	// Your code here.
-
+	stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
+	if(lline<=rline){
+	//stabs[lline] points to the line number;
+		info->rip_line = stabs[lline].n_desc;
+	}else return -1;
 
 	// Search backwards from the line number for the relevant filename
 	// stab.
