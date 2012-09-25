@@ -201,7 +201,7 @@ grade:
 handin: realclean
 	@if [ `git status --porcelain| wc -l` != 0 ] ; then echo "\n\n\n\n\t\tWARNING: YOU HAVE UNCOMMITTED CHANGES\n\n    Consider committing any pending changes and rerunning make handin.\n\n\n\n"; fi
 	git tag -f -a lab$(LAB)-handin -m "Lab$(LAB) Handin"
-	git push handin --tags
+	git push --tags handin
 
 tarball:
 	@if test "$$(git symbolic-ref HEAD)" != refs/heads/lab$(LAB); then \
