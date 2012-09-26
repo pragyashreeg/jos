@@ -670,6 +670,33 @@ static uintptr_t user_mem_check_addr;
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
+	uint64_t start = ROUNDDOWN((uint64_t)va, PGSIZE);
+	uint64_t end = ROUNDUP(( uint64_t)(va+len), PGSIZE);
+	uint64_t la =0;
+	
+
+	pte_t *ptep=NULL;
+	//cprintf("user mem check : va : %x, len : %x\n", va, len);
+	for(la = start; la< end ; la = la+PGSIZE){
+		ptep = pml4e_walk(env->env_pml4e , (void *)la, false);
+		if (ptep==NULL){
+			//cprintf("la : %x, ptep: %x, va : %x\n ", la , ptep, va);
+			if ( (void *)la < va) user_mem_check_addr = (uintptr_t )va;
+                        else user_mem_check_addr =la;
+			return -E_FAULT;
+		}
+		//cprintf("* ptep: %x, ptep : %x\n",*ptep, ptep);
+		//cprintf("PGOFF(*ptep) %x , perm : %x\n", PGOFF(*ptep)|perm |PTE_P, perm | PTE_P);
+		if ( (( *ptep &( PTE_P | perm)) == ( perm | PTE_P ) ) && la < ULIM) { // <- env can read pages
+			//cprintf ("at permissions : *ptep : %x , perm : %x \n", *ptep, perm);
+			continue; 		
+		}else {
+			if ( (void *)la < va) user_mem_check_addr = (uintptr_t )va;
+			else user_mem_check_addr =la;
+			return -E_FAULT;
+		}
+		
+	}
 	return 0;
 
 }

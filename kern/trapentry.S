@@ -66,7 +66,7 @@ TRAPHANDLER(stack_fault,T_STACK);
 TRAPHANDLER(general_protection,T_GPFLT);
 TRAPHANDLER(page_fault, T_PGFLT);
 
-TRAPHANDLER(syscall_exception, T_SYSCALL);
+TRAPHANDLER_NOEC(syscall_exception, T_SYSCALL);
 
 #TRAPHANDLER_NOEC(unknown_trap, 15);
 TRAPHANDLER_NOEC(floating_point_error, T_FPERR);
@@ -78,15 +78,27 @@ TRAPHANDLER_NOEC(SIMD_floating_point_exception, T_SIMDERR);
 /*
  * Lab 3: Your code here for _alltraps
  */
+.align 2
 _alltraps:
-	subq $16, %esp
-	movw %ds, 8(%esp) 
-	movw %es, 0(%esp)
+	subq $16, %rsp
+	movw %ds, 8(%rsp) 
+	movw %es, 0(%rsp)
 	PUSHA
-	movw GD_KD,%es
-	movw GD_KD,%ds
-	pushq %esp
-	movq %esp, %edi
-	addq $8, %edi
+	movw $GD_KD,%ax
+	movw %ax, %es
+	movw %ax, %ds
+	pushq %rsp
+	movq %rsp, %rdi
+	addq $8, %rdi
 	call trap
-	
+	POPA_
+	lret
+/*
+
+	pushq $GD_KD
+	pushq $GD_KD
+	PUSHA
+	movl %esp, %edi
+	call trap
+	POPA	
+*/

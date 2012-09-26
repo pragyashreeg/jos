@@ -21,7 +21,7 @@ sys_cputs(const char *s, size_t len)
 	// Destroy the environment if not.
 
 	// LAB 3: Your code here.
-	uint64_t start = ROUNDDOWN((uint64_t)s, PGSIZE);
+	/*uint64_t start = ROUNDDOWN((uint64_t)s, PGSIZE);
 	uint64_t end = ROUNDUP((uint64_t)(s+len), PGSIZE);
 	int is_read = true;	
 	uint64_t la=start;
@@ -43,10 +43,14 @@ sys_cputs(const char *s, size_t len)
 	if ( !is_read ){
 		panic("sputs");	
 		env_destroy(curenv);
-	}else {
+	}
+		else {
 		// Print the string supplied by the user.
 		cprintf("%.*s", len, s);
 	}
+	*/		
+	user_mem_assert(curenv ,s, len, PTE_U | PTE_P );
+	cprintf("%.*s ", len, s);
 	
 }
 
