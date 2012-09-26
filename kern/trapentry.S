@@ -38,7 +38,7 @@
 	.type name, @function;						\
 	.align 2;							\
 	name:								\
-	pushq $0;							\
+	pushq $0; 							\
 	pushq $(num);							\
 	jmp _alltraps
 
@@ -50,9 +50,43 @@
    pusha,popa so you will find these macros handy.
  */
 
+TRAPHANDLER_NOEC(divide_zero, T_DIVIDE);
+TRAPHANDLER_NOEC(debug,T_DEBUG);
+TRAPHANDLER_NOEC(non_mask_interrupt, T_NMI);
+TRAPHANDLER_NOEC(breakp,T_BRKPT);
+TRAPHANDLER_NOEC(overflow,T_OFLOW);
+TRAPHANDLER_NOEC(bound_range_exceeded,T_BOUND);
+TRAPHANDLER_NOEC(invalid_opcode, T_ILLOP);
+TRAPHANDLER_NOEC(device_not_avail,T_DEVICE);
+TRAPHANDLER(double_fault, T_DBLFLT);
+#TRAPHANDLER_NOEC(coprocessor_segment_overrun, 9);
+TRAPHANDLER(invalid_TSS, T_TSS);
+TRAPHANDLER(segment_not_present, T_SEGNP);
+TRAPHANDLER(stack_fault,T_STACK);
+TRAPHANDLER(general_protection,T_GPFLT);
+TRAPHANDLER(page_fault, T_PGFLT);
+
+TRAPHANDLER(syscall_exception, T_SYSCALL);
+
+#TRAPHANDLER_NOEC(unknown_trap, 15);
+TRAPHANDLER_NOEC(floating_point_error, T_FPERR);
+TRAPHANDLER(alignment_check,T_ALIGN);
+TRAPHANDLER_NOEC(machine_check, T_MCHK);
+TRAPHANDLER_NOEC(SIMD_floating_point_exception, T_SIMDERR);
 
 
 /*
  * Lab 3: Your code here for _alltraps
  */
-
+_alltraps:
+	subq $16, %esp
+	movw %ds, 8(%esp) 
+	movw %es, 0(%esp)
+	PUSHA
+	movw GD_KD,%es
+	movw GD_KD,%ds
+	pushq %esp
+	movq %esp, %edi
+	addq $8, %edi
+	call trap
+	

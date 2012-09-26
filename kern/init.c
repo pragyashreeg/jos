@@ -40,7 +40,7 @@ i386_init(void)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
-	// Touch all you want.
+//	// Touch all you want.
 	ENV_CREATE(user_hello, ENV_TYPE_USER);
 #endif // TEST*
 

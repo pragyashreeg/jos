@@ -54,7 +54,7 @@ static const char *trapname(int trapno)
 
 	if (trapno < sizeof(excnames)/sizeof(excnames[0]))
 		return excnames[trapno];
-	if (trapno == T_SYSCALL)
+	if (trapno == T_SYSCALL) //48
 		return "System call";
 	return "(unknown trap)";
 }
@@ -66,8 +66,31 @@ trap_init(void)
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
-    idt_pd.pd_lim = sizeof(idt)-1;
-    idt_pd.pd_base = (uint64_t)idt;
+	idt_pd.pd_lim = sizeof(idt)-1;
+    	idt_pd.pd_base = (uint64_t)idt;
+
+	SETGATE(idt[0],1,GD_KT,divide_zero,0);
+	SETGATE(idt[1] ,1,GD_KT,debug,0);
+	SETGATE(idt[2],0,GD_KT,non_mask_interrupt,0);
+	SETGATE(idt[3],1,GD_KT,breakp,3);
+	SETGATE(idt[4],1,GD_KT,overflow,0);
+	SETGATE(idt[5],1,GD_KT,bound_range_exceeded,0);
+	SETGATE(idt[6],1,GD_KT,invalid_opcode,0);
+	SETGATE(idt[7],1,GD_KT,device_not_avail,0);
+	SETGATE(idt[8],1,GD_KT,double_fault,0);
+	//SETGATE(idt[9],1,GD_KT,coprocessor_segment_overrun,0);
+	SETGATE(idt[10],1,GD_KT,invalid_TSS,0);
+	SETGATE(idt[11],1,GD_KT,segment_not_present,0);
+	SETGATE(idt[12],1,GD_KT,stack_fault,0);
+	SETGATE(idt[13],1,GD_KT,general_protection,0);
+	SETGATE(idt[14],1,GD_KT,page_fault,0);
+	//SETGATE(idt[15],1,GD_KT,unknown_trap,0);
+	SETGATE(idt[16],1,GD_KT,floating_point_error,0);
+	SETGATE(idt[17],1,GD_KT,alignment_check,0);
+	SETGATE(idt[18],1,GD_KT,machine_check,0);
+	SETGATE(idt[19],1,GD_KT,SIMD_floating_point_exception,0);
+
+	SETGATE(idt[48],0,GD_KT,syscall_exception,3);	
 	// Per-CPU setup
 	trap_init_percpu();
 }
@@ -146,11 +169,22 @@ print_regs(struct PushRegs *regs)
 static void
 trap_dispatch(struct Trapframe *tf)
 {
+	int s_ret=0;
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
-
-	// Unexpected trap: The user process or the kernel has a bug.
-	print_trapframe(tf);
+	
+	if (tf!=NULL && tf->tf_trapno == T_PGFLT)	
+		page_fault_handler(tf);
+	
+	if (tf !=NULL && tf->tf_trapno == T_BRKPT)
+		monitor(tf);
+	
+	if (tf!=NULL && tf->tf_trapno == T_SYSCALL){
+	s_ret=syscall(tf->tf_regs.reg_rax, tf->tf_regs.reg_rdx, tf->tf_regs.reg_rcx, tf->tf_regs.reg_rbx, tf->tf_regs.reg_rdi, tf->tf_regs.reg_rsi);	
+	//return value needs to be saved as well
+	tf->tf_regs.reg_rax = s_ret;
+	}
+	// Unexpected trap: The user process or the kernel has a bug.i
 	if (tf->tf_cs == GD_KT)
 		panic("unhandled trap in kernel");
 	else {
@@ -173,11 +207,9 @@ trap(struct Trapframe *tf)
 	assert(!(read_eflags() & FL_IF));
 
 	cprintf("Incoming TRAP frame at %p\n", tf);
-
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
 		assert(curenv);
-
 		// Copy trap frame (which is currently on the stack)
 		// into 'curenv->env_tf', so that running the environment
 		// will restart at the trap point.
@@ -192,7 +224,6 @@ trap(struct Trapframe *tf)
 
 	// Dispatch based on what type of trap occurred
 	trap_dispatch(tf);
-
 	// Return to the current environment, which should be running.
 	assert(curenv && curenv->env_status == ENV_RUNNING);
 	env_run(curenv);
@@ -219,5 +250,6 @@ page_fault_handler(struct Trapframe *tf)
 		curenv->env_id, fault_va, tf->tf_rip);
 	print_trapframe(tf);
 	env_destroy(curenv);
+	return;
 }
 
