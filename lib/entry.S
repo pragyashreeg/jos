@@ -24,7 +24,8 @@
 .globl _start
 _start:
 	// See if we were started with arguments on the stack
-	cmpl $USTACKTOP, %esp
+	movabs $USTACKTOP, %rax
+	cmpq %rax,%rsp
 	jne args_exist
 
 	// If not, push dummy argc/argv arguments.
@@ -34,6 +35,8 @@ _start:
 	pushq $0
 
 args_exist:
+	movq 8(%rsp), %rsi
+	movq (%rsp), %rdi
 	call libmain
 1:	jmp 1b
 

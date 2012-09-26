@@ -43,6 +43,7 @@ enum {
 enum EnvType {
 	ENV_TYPE_USER = 0,
 	ENV_TYPE_IDLE,
+	ENV_TYPE_FS,		// File system server
 };
 
 struct Env {
