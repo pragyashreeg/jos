@@ -22,9 +22,37 @@ sys_cputs(const char *s, size_t len)
 	// Destroy the environment if not.
 
 	// LAB 3: Your code here.
+	/*uint64_t start = ROUNDDOWN((uint64_t)s, PGSIZE);
+	uint64_t end = ROUNDUP((uint64_t)(s+len), PGSIZE);
+	int is_read = true;	
+	uint64_t la=start;
 
-	// Print the string supplied by the user.
-	cprintf("%.*s", len, s);
+	for ( la = start; la < end ; la = la + PGSIZE ){
+
+		pte_t *ptep = pml4e_walk(curenv->env_pml4e ,(void *)la , false);
+		if ( !ptep ){
+			cprintf("string address :%x\n , length : %x", s,len );
+			panic("entry not found in pt");
+		}
+		if ( (*ptep & (PTE_P | PTE_U ))!= 5)
+		{
+			is_read = false;
+			cprintf("This page not found: %x\n", *ptep);
+		}
+
+	}
+	if ( !is_read ){
+		panic("sputs");	
+		env_destroy(curenv);
+	}
+		else {
+		// Print the string supplied by the user.
+		cprintf("%.*s", len, s);
+	}
+	*/		
+	user_mem_assert(curenv ,s, len, PTE_U | PTE_P );
+	cprintf("%.*s ", len, s);
+	
 }
 
 // Read a character from the system console without blocking.
@@ -267,10 +295,29 @@ sys_ipc_recv(void *dstva)
 int64_t
 syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5)
 {
+
+	int64_t ret=0;
 	// Call the function corresponding to the 'syscallno' parameter.
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
-
-	panic("syscall not implemented");
+	
+	if (syscallno == SYS_cputs){
+		sys_cputs((void *)a1, a2);
+		return 0;
+	}
+	else if (syscallno == SYS_cgetc){
+		ret = sys_cgetc();
+		return ret;
+	}
+	else if (syscallno == SYS_getenvid){
+		ret = sys_getenvid();
+		return ret;
+	}
+	else if (syscallno == SYS_env_destroy){
+		ret = sys_env_destroy(a1);
+		return ret;
+	}else {
+		return -E_INVAL;
+	}
 }
 

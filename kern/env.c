@@ -119,10 +119,22 @@ envid2env(envid_t envid, struct Env **env_store, bool checkperm)
 //
 	void
 env_init(void)
-{
+{	
+	int i=0;
 	// Set up envs array
 	// LAB 3: Your code here.
-
+	if (envs==NULL){
+		panic("envs array has not been initialized yet");
+	}
+	for (i=0; i < NENV-1; i++){
+		envs[i].env_id =0;
+		envs[i].env_link=&envs[i+1];
+	}
+	// handle the last case
+	envs[i].env_id=0;
+	envs[i].env_link = NULL;
+	env_free_list = &envs[0]; // initialize the free env list
+	cprintf("no of ENV:%d\n",NENV);
 	// Per-CPU part of the initialization
 	env_init_percpu();
 }
@@ -162,15 +174,31 @@ lldt(0);
 	static int
 env_setup_vm(struct Env *e)
 {
+
+
 	int r;
 	int i;
-	struct Page *p = NULL;
+	uint64_t la=0;
+	struct Page *p=NULL;
+	pdpe_t *env_pdpep=NULL;
+	pde_t *env_pgdirp=NULL;
+	 // base address of kernel pgdir table. kernel has only one pgdir starts at index 380-> 511. So we can get the value using any kernel address
+	//pdpe_t *kern_pdpep = (uint64_t *)(KADDR( (uint64_t )PTE_ADDR( (uint64_t)boot_pml4e[PML4(KERNBASE)] ) ));
+	//pde_t *kern_pgdirp = (uint64_t *)(KADDR( (uint64_t )PTE_ADDR ( (uint64_t) kern_pdpep[PDPE(KERNBASE)] ) ));
+	pdpe_t *kern_pdpep = KADDR((uint64_t)(boot_pml4e[0] & 0xfffff000 ));
+	pde_t *kern_pgdirp = KADDR((uint64_t)(kern_pdpep[3] & 0xfffff000 ));
 
-	// Allocate a page for the page directory
-	if (!(p = page_alloc(0)))
+	// Allocate a page for pml4
+	if (!(p = page_alloc(ALLOC_ZERO)))
 		return -E_NO_MEM;
+	// Now, set e->env_pml4e and initialize the pml4e.
+	e->env_pml4e = page2kva(p);
+	e->env_cr3 = PADDR(e->env_pml4e);
+	(p->pp_ref)++; //  increment the reference count of the page just allocated to pml4e
 
-	// Now, set e->env_pgdir and initialize the page directory.
+		
+	cprintf("kernel pgdir %x\n",kern_pgdirp );	
+	cprintf("ENVPG : va %x , pa :%x\n", e->env_pml4e, e->env_cr3);
 	//
 	// Hint:
 	//    - The VA space of all envs is identical above UTOP
@@ -187,12 +215,47 @@ env_setup_vm(struct Env *e)
 	//    - The functions in kern/pmap.h are handy.
 
 	// LAB 3: Your code here.
-
+	// initialize the kernel address space in env space
+	for (la=UTOP;la < 0xFFFFFFFF;la=la+PGSIZE){
+		if (!env_pdpep){
+			cprintf("time to alloc pdpep\n");
+			//pdpe has not been allocated yet
+			if (!(p = page_alloc(ALLOC_ZERO)))
+				{return -E_NO_MEM;
+				}
+			(p->pp_ref)++;
+			env_pdpep =(pdpe_t *)(page2kva(p));
+			e->env_pml4e[PML4(la)] = PADDR(env_pdpep) | PTE_P | PTE_U | PTE_W;
+			cprintf("pdpep is at %x at index %d of pml4e\n",env_pdpep, PML4(la) );
+			
+		}
+		//cprintf("pdpep is at %x at index %d of pml4e\n",env_pdpep, PML4(la) );
+		if (!env_pgdirp){
+			cprintf("time to alloc pgdirp\n");
+			// pgdir has not been allocated yet
+			if (!(p = page_alloc(ALLOC_ZERO))){
+				return -E_NO_MEM;
+			}
+			(p->pp_ref)++;
+			env_pgdirp =(pde_t *) (page2kva(p));
+			env_pdpep[PDPE(la)] = PADDR(env_pgdirp) | PTE_U | PTE_P | PTE_W; // pgdirp is at index 3 of pdpep
+			
+		}
+		//cprintf("pgdirp is at %x\n", env_pgdirp);
+		// now copy the contents of kernel page tables to env page tables
+		if (!kern_pgdirp){
+			panic("kernel page table has errors ");
+		}
+		
+	env_pgdirp[PDX(la)] = kern_pgdirp[PDX(la)];
+			
+	}		
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
 	e->env_pml4e[PML4(UVPT)] = e->env_cr3 | PTE_P | PTE_U;
 
 	return 0;
+
 }
 
 //
@@ -280,10 +343,36 @@ region_alloc(struct Env *e, void *va, size_t len)
 	// LAB 3: Your code here.
 	// (But only if you need it for load_icode.)
 	//
+	cprintf("va : %x , len %d\n", va, len);
+	if (e==NULL){
+		panic("region alloc failed. env is null");
+	}
 	// Hint: It is easier to use region_alloc if the caller can pass
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round (va + len) up.
 	//   (Watch out for corner-cases!)
+	struct Page *p;
+	size_t i;
+	void *start, *end, *la;
+	pte_t *ptep=NULL;
+	int c=0;
+	//Page align
+	end =  (void *) ROUNDUP((uint64_t)va+len, PGSIZE);
+	start = (void *) ROUNDDOWN((uint64_t)va, PGSIZE);
+		
+	for (la=start; la < end ; la = la+PGSIZE){ //memory allocation is always page aligned
+		//cprintf("%x\n", i);
+		//ptep = pml4e_walk(e->env_pml4e, la, true);
+		//if (!ptep) 
+		//	panic("Pml4e walk returned null");
+		if (!(p = page_alloc(ALLOC_ZERO)))
+			panic("Page alloc failed \n");
+		page_insert(e->env_pml4e, p, la, PTE_W | PTE_U | PTE_P);
+	//the page insert takes care of ref increment
+	//	*ptep = page2pa(p) | PTE_P | PTE_W | PTE_U; // store the page in env PTE use page insert and not pml4e walk 
+
+	}
+
 }
 
 //
@@ -340,10 +429,50 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 	//  What?  (See env_run() and env_pop_tf() below.)
 
 	// LAB 3: Your code here
+	struct Page *p=NULL;
+	struct Proghdr *ph, *eph;
+	pte_t *ptep;
+	int i, j; 
+	size_t size_c;
+	struct Elf *elf = (struct Elf *)binary;
+	uint64_t *pml4e,*pdpe,*pgdir,*pte;
+
+	if (elf->e_magic != ELF_MAGIC)panic ("Bad ELF binary");
+	
+	//allocate a chunk of physical memory to the env
+	//region_alloc(e, binary , size);
+	// parse through the PTH to load the loadable content
+	ph = (struct Proghdr*) (binary + elf->e_phoff);
+	eph = ph + elf->e_phnum;
+	cprintf("%xl %xl\n", ph->p_va, eph);
+	lcr3(e->env_cr3);
+	for (; ph<eph; ph++){
+		if (ph->p_type == ELF_PROG_LOAD){
+			region_alloc(e, (void *)(ph->p_va), ph->p_memsz);	
+			memcpy ((void *)(ph->p_va), (void *)(binary + ph->p_offset), ph->p_filesz);
+
+		}
+		
+	}
+	lcr3(boot_cr3);	
+	//set the programs entry point 
+	e->env_tf.tf_rip =  (uint64_t)(elf->e_entry);
+
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
-
+	
 	// LAB 3: Your code here.
+	if ( !(p = page_alloc(ALLOC_ZERO)) ){
+		panic("out of memory");
+	}
+	page_insert(e->env_pml4e, p , (uint64_t*)(USTACKTOP - PGSIZE), PTE_U | PTE_P | PTE_W);
+	//ptep =pml4e_walk(e->env_pml4e, (void*)(USTACKTOP - PGSIZE), true);
+	//cprintf ("ptep : %x, p=%x\n", ptep, page2pa(p));
+	//*ptep = page2pa(p)| PTE_U | PTE_P | PTE_W;
+
+	//lcr3(e->env_cr3);
+	//panic("stop");
+	
 }
 
 //
@@ -357,6 +486,17 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 env_create(uint8_t *binary, size_t size, enum EnvType type)
 {
 	// LAB 3: Your code here.
+	struct Env *e=NULL;
+	int parentID = 0; 
+	//allocate a new env
+	if ( env_alloc(&e, parentID) < 0 ){
+		panic ("environmenmt creation failed");
+	}
+	// e should now contain the new allocated env
+	if (e==NULL) panic ("envirnment pointer is still null");
+	cprintf("in env_create : %x\n", e);
+	load_icode(e, binary, size);
+	e->env_type=type;
 }
 
 //
@@ -484,7 +624,7 @@ env_pop_tf(struct Trapframe *tf)
 //
 // This function does not return.
 //
-	void
+void
 env_run(struct Env *e)
 {
 	// Step 1: If this is a context switch (a new environment is running):
@@ -505,7 +645,17 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 
 	// LAB 3: Your code here.
-
-	panic("env_run not yet implemented");
+	
+	if (curenv){
+		
+		e->env_status = ENV_RUNNABLE;
+	}
+	
+		curenv = e;
+		e->env_status=ENV_RUNNING;
+		(e->env_runs)++;
+		lcr3(e->env_cr3); // switch to new environment context	
+		env_pop_tf(&e->env_tf);
+	
 }
 
