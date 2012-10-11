@@ -48,18 +48,15 @@ i386_init(void)
 
 	// Lab 4 multitasking initialization functions
 	pic_init();
-
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
 
 	// Starting non-boot CPUs
 	boot_aps();
-
 	// Should always have idle processes at first.
 	int i;
 	for (i = 0; i < NCPU; i++)
 		ENV_CREATE(user_idle, ENV_TYPE_IDLE);
-
 #if defined(TEST)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(TEST, ENV_TYPE_USER);
@@ -67,13 +64,11 @@ i386_init(void)
 	// Touch all you want.
 	ENV_CREATE(user_primes, ENV_TYPE_USER);
 #endif // TEST*
-
 	// Schedule and run the first user environment!
 	sched_yield();
-
-
+	
 	// We only have one user environment for now, so just run it.
-	env_run(&envs[0]);
+	//	env_run(&envs[0]);
        	// Test the stack backtrace function (lab 1 only)
 //	test_backtrace(5);
 

@@ -118,7 +118,7 @@ trap_init_percpu(void)
 	//     thiscpu->cpu_id;
 	//   - Use "thiscpu->cpu_ts" as the TSS for the current CPU,
 	//     rather than the global "ts" variable;
-	//   - Use gdt[(GD_TSS0 >> 3) + i] for CPU i's TSS descriptor;
+	//   - Use gdt[(GD_TSS0 >> 3) + 2*i] for CPU i's TSS descriptor;
 	//   - You mapped the per-CPU kernel stacks in mem_init_mp()
 	//
 	// ltr sets a 'busy' flag in the TSS selector, so if you
@@ -131,15 +131,24 @@ trap_init_percpu(void)
 
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
-	ts.ts_esp0 = KSTACKTOP;
-
+	
+	uint32_t cpu = cpunum();
+	struct Taskstate ts1 = thiscpu->cpu_ts; 
+	cprintf("cpu id: %d", cpu);
+	ts1.ts_esp0 = KSTACKTOP -(KSTKSIZE + KSTKGAP) * cpu;
+	//gdt[(GD_TSS0 >> 3) + 2 * cpu]= SEG64(STS_T64A, (uint64_t )&ts, sizeof(struct Taskstate), 0 );
+	;
+	//Lab 3 code
+	//ts.ts_esp0 = KSTACKTOP;
+	
 	// Initialize the TSS slot of the gdt.
-	SETTSS((struct SystemSegdesc64 *)((gdt_pd>>16)+40),STS_T64A, (uint64_t) (&ts),sizeof(struct Taskstate), 0);
+	SETTSS((struct SystemSegdesc64 *)((gdt_pd>>16)+40 + (2* cpu * 8) ),STS_T64A, (uint64_t) (&ts1),sizeof(struct Taskstate), 0);
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
-	ltr(GD_TSS0);
+	ltr(GD_TSS0 + cpu * sizeof(struct Segdesc));
+	//ltr(GD_TSS0);
 
-	// Load the IDT
+	// Load the IDT:
 	lidt(&idt_pd);
 }
 

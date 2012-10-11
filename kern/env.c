@@ -134,7 +134,6 @@ env_init(void)
 	envs[i].env_id=0;
 	envs[i].env_link = NULL;
 	env_free_list = &envs[0]; // initialize the free env list
-	cprintf("no of ENV:%d\n",NENV);
 	// Per-CPU part of the initialization
 	env_init_percpu();
 }
@@ -197,8 +196,6 @@ env_setup_vm(struct Env *e)
 	(p->pp_ref)++; //  increment the reference count of the page just allocated to pml4e
 
 		
-	cprintf("kernel pgdir %x\n",kern_pgdirp );	
-	cprintf("ENVPG : va %x , pa :%x\n", e->env_pml4e, e->env_cr3);
 	//
 	// Hint:
 	//    - The VA space of all envs is identical above UTOP
@@ -218,7 +215,6 @@ env_setup_vm(struct Env *e)
 	// initialize the kernel address space in env space
 	for (la=UTOP;la < 0xFFFFFFFF;la=la+PGSIZE){
 		if (!env_pdpep){
-			cprintf("time to alloc pdpep\n");
 			//pdpe has not been allocated yet
 			if (!(p = page_alloc(ALLOC_ZERO)))
 				{return -E_NO_MEM;
@@ -226,12 +222,9 @@ env_setup_vm(struct Env *e)
 			(p->pp_ref)++;
 			env_pdpep =(pdpe_t *)(page2kva(p));
 			e->env_pml4e[PML4(la)] = PADDR(env_pdpep) | PTE_P | PTE_U | PTE_W;
-			cprintf("pdpep is at %x at index %d of pml4e\n",env_pdpep, PML4(la) );
 			
 		}
-		//cprintf("pdpep is at %x at index %d of pml4e\n",env_pdpep, PML4(la) );
 		if (!env_pgdirp){
-			cprintf("time to alloc pgdirp\n");
 			// pgdir has not been allocated yet
 			if (!(p = page_alloc(ALLOC_ZERO))){
 				return -E_NO_MEM;
@@ -343,7 +336,6 @@ region_alloc(struct Env *e, void *va, size_t len)
 	// LAB 3: Your code here.
 	// (But only if you need it for load_icode.)
 	//
-	cprintf("va : %x , len %d\n", va, len);
 	if (e==NULL){
 		panic("region alloc failed. env is null");
 	}
@@ -444,7 +436,6 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 	// parse through the PTH to load the loadable content
 	ph = (struct Proghdr*) (binary + elf->e_phoff);
 	eph = ph + elf->e_phnum;
-	cprintf("%xl %xl\n", ph->p_va, eph);
 	lcr3(e->env_cr3);
 	for (; ph<eph; ph++){
 		if (ph->p_type == ELF_PROG_LOAD){
@@ -494,7 +485,6 @@ env_create(uint8_t *binary, size_t size, enum EnvType type)
 	}
 	// e should now contain the new allocated env
 	if (e==NULL) panic ("envirnment pointer is still null");
-	cprintf("in env_create : %x\n", e);
 	load_icode(e, binary, size);
 	e->env_type=type;
 }
@@ -646,9 +636,9 @@ env_run(struct Env *e)
 
 	// LAB 3: Your code here.
 	
-	if (curenv){
+	if (curenv && curenv->env_status == ENV_RUNNING){
 		
-		e->env_status = ENV_RUNNABLE;
+		curenv->env_status = ENV_RUNNABLE;
 	}
 	
 		curenv = e;

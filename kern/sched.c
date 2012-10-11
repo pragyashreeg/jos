@@ -44,10 +44,11 @@ sched_yield(void)
 		while (1)
 			monitor(NULL);
 	}
-
+	
 	// Run this CPU's idle environment when nothing else is runnable.
 	idle = &envs[cpunum()];
 	if (!(idle->env_status == ENV_RUNNABLE || idle->env_status == ENV_RUNNING))
 		panic("CPU %d: No idle environment!", cpunum());
+	
 	env_run(idle);
 }
