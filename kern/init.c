@@ -57,6 +57,8 @@ i386_init(void)
 	int i;
 	for (i = 0; i < NCPU; i++)
 		ENV_CREATE(user_idle, ENV_TYPE_IDLE);
+	
+
 #if defined(TEST)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(TEST, ENV_TYPE_USER);
@@ -65,17 +67,13 @@ i386_init(void)
 	ENV_CREATE(user_primes, ENV_TYPE_USER);
 #endif // TEST*
 	// Schedule and run the first user environment!
-	sched_yield();
+	//sched_yield();
 	
 	// We only have one user environment for now, so just run it.
 	//	env_run(&envs[0]);
        	// Test the stack backtrace function (lab 1 only)
 //	test_backtrace(5);
 
-
-	// Drop into the kernel monitor.
-	while (1)
-		monitor(NULL);
 }
 
 // While boot_aps is booting a given CPU, it communicates the per-core
@@ -130,6 +128,7 @@ mp_main(void)
 
 	// Remove this after you finish Exercise 4
 	for (;;);
+	panic("C");
 }
 
 /*

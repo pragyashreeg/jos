@@ -133,21 +133,23 @@ trap_init_percpu(void)
 	// when we trap to the kernel.
 	
 	uint32_t cpu = cpunum();
-	struct Taskstate ts1 = thiscpu->cpu_ts; 
-	cprintf("cpu id: %d", cpu);
-	ts1.ts_esp0 = KSTACKTOP -(KSTKSIZE + KSTKGAP) * cpu;
-	//gdt[(GD_TSS0 >> 3) + 2 * cpu]= SEG64(STS_T64A, (uint64_t )&ts, sizeof(struct Taskstate), 0 );
-	;
+	struct Taskstate ts_i = thiscpu->cpu_ts; 
+	cprintf("cpu id: %d\n", cpu);
+	ts_i.ts_esp0 = KSTACKTOP -(KSTKSIZE + KSTKGAP) * cpu;
+	//ts_i.ts_ss0 = GD_KD;
+	//gdt[(GD_TSS0 >> 3) + (2 * cpu)]= SEG16(STS_T64A, (uint64_t )&ts_i, sizeof(struct Taskstate), 0 );
+	
 	//Lab 3 code
 	//ts.ts_esp0 = KSTACKTOP;
 	
 	// Initialize the TSS slot of the gdt.
-	SETTSS((struct SystemSegdesc64 *)((gdt_pd>>16)+40 + (2* cpu * 8) ),STS_T64A, (uint64_t) (&ts1),sizeof(struct Taskstate), 0);
+	SETTSS((struct SystemSegdesc64 *)((gdt_pd>>16)+(40+(2* cpu * 8)) ),STS_T64A, (uint64_t) (&ts_i),sizeof(struct Taskstate), 0);
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
-	ltr(GD_TSS0 + cpu * sizeof(struct Segdesc));
+	
+	ltr((GD_TSS0 + (cpu * 2 * sizeof(struct Segdesc))));
 	//ltr(GD_TSS0);
-
+	cprintf("idt:%x\n", &idt_pd);
 	// Load the IDT:
 	lidt(&idt_pd);
 }
