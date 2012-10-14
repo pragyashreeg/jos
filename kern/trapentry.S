@@ -92,8 +92,6 @@ _alltraps:
 	movq %rsp, %rdi
 	addq $8, %rdi
 	call trap
-	POPA_
-	lret
 /*
 
 	pushq $GD_KD

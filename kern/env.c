@@ -353,15 +353,9 @@ region_alloc(struct Env *e, void *va, size_t len)
 	start = (void *) ROUNDDOWN((uint64_t)va, PGSIZE);
 		
 	for (la=start; la < end ; la = la+PGSIZE){ //memory allocation is always page aligned
-		//cprintf("%x\n", i);
-		//ptep = pml4e_walk(e->env_pml4e, la, true);
-		//if (!ptep) 
-		//	panic("Pml4e walk returned null");
 		if (!(p = page_alloc(ALLOC_ZERO)))
 			panic("Page alloc failed \n");
 		page_insert(e->env_pml4e, p, la, PTE_W | PTE_U | PTE_P);
-	//the page insert takes care of ref increment
-	//	*ptep = page2pa(p) | PTE_P | PTE_W | PTE_U; // store the page in env PTE use page insert and not pml4e walk 
 
 	}
 
@@ -457,13 +451,7 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 		panic("out of memory");
 	}
 	page_insert(e->env_pml4e, p , (uint64_t*)(USTACKTOP - PGSIZE), PTE_U | PTE_P | PTE_W);
-	//ptep =pml4e_walk(e->env_pml4e, (void*)(USTACKTOP - PGSIZE), true);
-	//cprintf ("ptep : %x, p=%x\n", ptep, page2pa(p));
-	//*ptep = page2pa(p)| PTE_U | PTE_P | PTE_W;
 
-	//lcr3(e->env_cr3);
-	//panic("stop");
-	
 }
 
 //
@@ -635,7 +623,6 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 
 	// LAB 3: Your code here.
-	
 	if (curenv && curenv->env_status == ENV_RUNNING){
 		
 		curenv->env_status = ENV_RUNNABLE;
@@ -644,8 +631,10 @@ env_run(struct Env *e)
 		curenv = e;
 		e->env_status=ENV_RUNNING;
 		(e->env_runs)++;
+		unlock_kernel();
 		lcr3(e->env_cr3); // switch to new environment context	
 		env_pop_tf(&e->env_tf);
 	
+		panic("");
 }
 

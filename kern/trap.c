@@ -1,6 +1,7 @@
 #include <inc/mmu.h>
 #include <inc/x86.h>
 #include <inc/assert.h>
+#include <inc/string.h>
 
 #include <kern/pmap.h>
 #include <kern/trap.h>
@@ -132,24 +133,13 @@ trap_init_percpu(void)
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
 	
-	uint32_t cpu = cpunum();
-	struct Taskstate ts_i = thiscpu->cpu_ts; 
-	cprintf("cpu id: %d\n", cpu);
-	ts_i.ts_esp0 = KSTACKTOP -(KSTKSIZE + KSTKGAP) * cpu;
-	//ts_i.ts_ss0 = GD_KD;
-	//gdt[(GD_TSS0 >> 3) + (2 * cpu)]= SEG16(STS_T64A, (uint64_t )&ts_i, sizeof(struct Taskstate), 0 );
-	
-	//Lab 3 code
-	//ts.ts_esp0 = KSTACKTOP;
+	thiscpu->cpu_ts.ts_esp0 = KSTACKTOP - (thiscpu->cpu_id) * (KSTKSIZE + KSTKGAP);
 	
 	// Initialize the TSS slot of the gdt.
-	SETTSS((struct SystemSegdesc64 *)((gdt_pd>>16)+(40+(2* cpu * 8)) ),STS_T64A, (uint64_t) (&ts_i),sizeof(struct Taskstate), 0);
+	SETTSS((struct SystemSegdesc64 *)((gdt_pd>>16)+(40+(2* (thiscpu->cpu_id) * 8)) ),STS_T64A, (uint64_t) (&thiscpu->cpu_ts),sizeof(struct Taskstate), 0);
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
-	
-	ltr((GD_TSS0 + (cpu * 2 * sizeof(struct Segdesc))));
-	//ltr(GD_TSS0);
-	cprintf("idt:%x\n", &idt_pd);
+	ltr((GD_TSS0 + ((thiscpu->cpu_id) * 2 * 8)));
 	// Load the IDT:
 	lidt(&idt_pd);
 }
@@ -257,7 +247,8 @@ trap_dispatch(struct Trapframe *tf)
 void
 trap(struct Trapframe *tf)
 {
-    //struct Trapframe *tf = &tf_;
+//	print_trapframe(tf);	
+    	//struct Trapframe *tf = &tf_;
 	// The environment may have set DF and some versions
 	// of GCC rely on DF being clear
 	asm volatile("cld" ::: "cc");
@@ -272,13 +263,12 @@ trap(struct Trapframe *tf)
 	// the interrupt path.
 	assert(!(read_eflags() & FL_IF));
 
-	cprintf("Incoming TRAP frame at %p\n", tf);
-	print_trapframe(tf);
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
 		// LAB 4: Your code here.
+		lock_kernel();
 		assert(curenv);
 
 		// Garbage collect if current enviroment is a zombie
@@ -310,9 +300,6 @@ trap(struct Trapframe *tf)
 		env_run(curenv);
 	else
 		sched_yield();
-	// Return to the current environment, which should be running.
-	assert(curenv && curenv->env_status == ENV_RUNNING);
-	env_run(curenv);
 }
 
 
@@ -323,11 +310,11 @@ page_fault_handler(struct Trapframe *tf)
 
 	// Read processor's CR2 register to find the faulting address
 	fault_va = rcr2();
-
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
-	if ((tf->tf_cs & 3) ==0) {
+	if (tf->tf_cs == GD_KT) {
+		print_trapframe(tf);
 		panic("Page fault in kernel mode");
 	}
 	
@@ -364,12 +351,72 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
+/*
+	if (curenv->env_pgfault_upcall){ // we have a handler
+		user_mem_assert(curenv, (void*)(UXSTACKTOP - PGSIZE),PGSIZE, PTE_P | PTE_W | PTE_U );
+		uint64_t stack_ex;
+		struct UTrapframe *utf;
 
-	// Destroy the environment that caused the fault.
+		if ( (UXSTACKTOP-PGSIZE) <= tf->tf_rsp && tf->tf_rsp <= (UXSTACKTOP-1))
+			//recursive
+			stack_ex = tf->tf_rsp - 8;
+		else 
+			stack_ex = tf->tf_rsp;
+		
+		if ((stack_ex - sizeof(struct UTrapframe)) > UXSTACKTOP - PGSIZE){
+			//contruct the trap frame now
+			utf = (struct UTrapframe *)(stack_ex - sizeof(struct UTrapframe));
+			utf->utf_fault_va = fault_va;
+			utf->utf_err = tf->tf_err;
+			utf->utf_regs = tf->tf_regs;
+			utf->utf_rip = tf->tf_rip;
+			utf->utf_eflags = tf->tf_eflags;
+			utf->utf_rsp = tf->tf_rsp;
+		
+			tf->tf_rsp = (uint64_t)stack_ex;
+			tf->tf_rip = (uint64_t)curenv->env_pgfault_upcall;   		
+			
+			env_run(curenv);
+		}	
+
+	}
+	
 	cprintf("[%08x] user fault va %08x ip %08x\n",
-		curenv->env_id, fault_va, tf->tf_rip);
+	curenv->env_id, fault_va, tf->tf_rip);
 	print_trapframe(tf);
 	env_destroy(curenv);
-	return;
-}
+	*/
 
+	if ( !curenv->env_pgfault_upcall || ( USTACKTOP < tf->tf_rsp && tf->tf_rsp < UXSTACKTOP-PGSIZE )){
+		// Destroy the env if user pf handler not defined OR UXstack overflows
+		cprintf("[%08x] user fault va %08x ip %08x\n",
+		curenv->env_id, fault_va, tf->tf_rip);
+		print_trapframe(tf);
+		env_destroy(curenv);
+		return;
+	}
+	//now build teh user trap frame
+	struct UTrapframe utf;
+	uintptr_t stack_pos;
+
+	utf.utf_fault_va = fault_va;
+	utf.utf_err = tf->tf_err;
+	utf.utf_regs = tf->tf_regs;
+	utf.utf_rip = tf->tf_rip;
+	utf.utf_eflags = tf->tf_eflags;
+	utf.utf_rsp = tf->tf_rsp;
+	//check if esp is from UXSTK or USTK
+	if ( (UXSTACKTOP - PGSIZE) <= tf->tf_rsp && tf->tf_rsp <= ( UXSTACKTOP - 1)){
+		stack_pos = (tf->tf_rsp - sizeof(struct UTrapframe));//add a word to the current stack
+		stack_pos = stack_pos - 8;
+	}else {
+		stack_pos = (UXSTACKTOP - sizeof(struct UTrapframe));
+	}
+	// create the frame in the stack	
+	user_mem_assert(curenv, (void *)stack_pos,sizeof(struct UTrapframe), PTE_P | PTE_U | PTE_W );
+	memcpy((void *)stack_pos, &utf, sizeof(struct UTrapframe));
+	tf->tf_rip = (uint64_t)curenv->env_pgfault_upcall; //TODO: tf or curen
+	tf->tf_rsp = stack_pos;
+	env_run(curenv);
+
+}

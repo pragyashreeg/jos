@@ -637,7 +637,7 @@ page_insert(pml4e_t *pml4e, struct Page *pp, void *va, int perm)
         pdpe_t *pdpep=NULL;
         pde_t *pgdirp=NULL;
 	
-	//cprintf("in page insert,pml4e : %x , page : %x, va : %x, perm : %x\n",pml4e, page2pa( pp), va, perm );
+//	cprintf("in page insert,pml4e : %x , page : %x, va : %x, perm : %x\n",pml4e, page2pa( pp), va, perm );
 	ptep = pml4e_walk(pml4e, va, true);
 	if (ptep==NULL) return -E_NO_MEM;
 	
@@ -714,13 +714,12 @@ page_lookup(pml4e_t *pml4e, void *va, pte_t **pte_store)
 	struct Page * page;
         pte_t *ptep;
 	physaddr_t page_physaddr;	
-
 	ptep=pml4e_walk(pml4e, va, false); // va w/o perms
 	if ( ptep==NULL ) {
 		return NULL;
-	}	
-	
-	if (!pte_store){
+	}
+		
+	if (pte_store){
 		*pte_store = ptep; // <- address of the page table entry
 	}
 
