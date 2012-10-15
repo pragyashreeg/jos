@@ -41,4 +41,21 @@ extern void machine_check();
 extern void SIMD_floating_point_exception();
 
 extern void syscall_exception();
+	
+extern void int_h_0();
+extern void int_h_1();
+extern void int_h_2();
+extern void int_h_3();
+extern void int_h_4();
+extern void int_h_5();
+extern void int_h_6();
+extern void int_h_7();
+extern void int_h_8();
+extern void int_h_9();
+extern void int_h_10();
+extern void int_h_11();
+extern void int_h_12();
+extern void int_h_13();
+extern void int_h_14();
+extern void int_h_15();
 #endif /* JOS_KERN_TRAP_H */

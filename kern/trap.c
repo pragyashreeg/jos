@@ -85,20 +85,37 @@ trap_init(void)
 	SETGATE(idt[5],1,GD_KT,bound_range_exceeded,0);
 	SETGATE(idt[6],1,GD_KT,invalid_opcode,0);
 	SETGATE(idt[7],1,GD_KT,device_not_avail,0);
-	SETGATE(idt[8],1,GD_KT,double_fault,0);
+	SETGATE(idt[8],0,GD_KT,double_fault,0);
 	//SETGATE(idt[9],1,GD_KT,coprocessor_segment_overrun,0);
 	SETGATE(idt[10],1,GD_KT,invalid_TSS,0);
 	SETGATE(idt[11],1,GD_KT,segment_not_present,0);
 	SETGATE(idt[12],1,GD_KT,stack_fault,0);
 	SETGATE(idt[13],1,GD_KT,general_protection,0);
-	SETGATE(idt[14],1,GD_KT,page_fault,0);
+	SETGATE(idt[14],0,GD_KT,page_fault,0);
 	//SETGATE(idt[15],1,GD_KT,unknown_trap,0);
 	SETGATE(idt[16],1,GD_KT,floating_point_error,0);
 	SETGATE(idt[17],1,GD_KT,alignment_check,0);
 	SETGATE(idt[18],1,GD_KT,machine_check,0);
 	SETGATE(idt[19],1,GD_KT,SIMD_floating_point_exception,0);
-
 	SETGATE(idt[48],0,GD_KT,syscall_exception,3);	
+
+	SETGATE(idt[IRQ_OFFSET],0,GD_KT,int_h_0,0);
+        SETGATE(idt[IRQ_OFFSET+1],0,GD_KT,int_h_1,0);
+        SETGATE(idt[IRQ_OFFSET+2],0,GD_KT,int_h_2,0);
+        SETGATE(idt[IRQ_OFFSET+3],0,GD_KT,int_h_3,0);
+        SETGATE(idt[IRQ_OFFSET+4],0,GD_KT,int_h_4,0);
+        SETGATE(idt[IRQ_OFFSET+5],0,GD_KT,int_h_5,0);
+        SETGATE(idt[IRQ_OFFSET+6],0,GD_KT,int_h_6,0);
+        SETGATE(idt[IRQ_OFFSET+7],0,GD_KT,int_h_7,0);
+        SETGATE(idt[IRQ_OFFSET+8],0,GD_KT,int_h_8,0);
+        SETGATE(idt[IRQ_OFFSET+9],0,GD_KT,int_h_9,0);
+        SETGATE(idt[IRQ_OFFSET+10],0,GD_KT,int_h_10,0);
+        SETGATE(idt[IRQ_OFFSET+11],0,GD_KT,int_h_11,0);
+        SETGATE(idt[IRQ_OFFSET+12],0,GD_KT,int_h_12,0);
+        SETGATE(idt[IRQ_OFFSET+13],0,GD_KT,int_h_13,0);
+        SETGATE(idt[IRQ_OFFSET+14],0,GD_KT,int_h_14,0);
+        SETGATE(idt[IRQ_OFFSET+15],0,GD_KT,int_h_15,0);
+
 	// Per-CPU setup
 	trap_init_percpu();
 }
@@ -232,7 +249,11 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
+	if (tf->tf_trapno == IRQ_OFFSET){
+		lapic_eoi();
+		sched_yield();
 
+	}
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT)
