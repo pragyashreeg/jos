@@ -190,12 +190,13 @@ fork(void)
 	if((r = sys_page_alloc(envid,(void*)(UXSTACKTOP - PGSIZE), PTE_P | PTE_W | PTE_U ))<0)	
 		panic("sys_page_alloc error: %e\n",r);
 
-	if((r = sys_env_set_status(envid, ENV_RUNNABLE))<0)
-		panic("sys_env_set_status error: %e\n",r);
 
 	if((r=sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall)))
 		panic("sys_env_set_pgfault_upcall error: %e\n",r);
 
+	if((r = sys_env_set_status(envid, ENV_RUNNABLE))<0)
+		panic("sys_env_set_status error: %e\n",r);
+	
 	return envid;
 
 }

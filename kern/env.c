@@ -433,7 +433,7 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 	lcr3(e->env_cr3);
 	for (; ph<eph; ph++){
 		if (ph->p_type == ELF_PROG_LOAD){
-			region_alloc(e, (void *)(ph->p_va), ph->p_memsz);	
+			region_alloc(e, (void *)(ph->p_va), ph->p_memsz);
 			memcpy ((void *)(ph->p_va), (void *)(binary + ph->p_offset), ph->p_filesz);
 
 		}

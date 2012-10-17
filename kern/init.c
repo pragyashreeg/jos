@@ -33,6 +33,7 @@ i386_init(void)
 	// Initialize the console.
 	// Can't call cprintf until after we do this!
 	cons_init();
+
 	cprintf("6828 decimal is %o octal!\n", 6828);
 	// Lab 2 memory management initialization functions
 	x64_vm_init();
@@ -63,8 +64,9 @@ i386_init(void)
 	ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
 	// Touch all you want.
-//	ENV_CREATE(user_faultalloc, ENV_TYPE_USER);
-	ENV_CREATE(user_forktree, ENV_TYPE_USER);
+//	ENV_CREATE(user_dumbfork, ENV_TYPE_USER);
+	ENV_CREATE(user_primes, ENV_TYPE_USER);
+//	ENV_CREATE(user_forktree, ENV_TYPE_USER);
 #endif // TEST*
 	// Schedule and run the first user environment!
 	sched_yield();

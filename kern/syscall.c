@@ -23,7 +23,7 @@ sys_cputs(const char *s, size_t len)
 
 	// LAB 3: Your code here.
 	user_mem_assert(curenv ,s, len, PTE_U | PTE_P );
-	cprintf("%.*s ", len, s);
+	cprintf("%.*s", len, s);
 	
 }
 
@@ -203,8 +203,6 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 		page_free(page);
 		return -E_NO_MEM;
 	}
-	//page1 = page_lookup(e->env_pml4e,va, &ptep );
-	//cprintf("page alloc: page after insert %x\n", page2pa(page1));
 	return 0;
 }
 
@@ -341,6 +339,47 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
+	struct Env *e;
+	struct Page *page;
+	pte_t *ptep;
+
+	if (envid2env(envid, &e, 0) != 0){
+		return -E_BAD_ENV;
+	}
+	
+	if (!e->env_ipc_recving){
+		return -E_IPC_NOT_RECV;
+	}
+
+	e->env_ipc_perm = 0;	
+	if ( (uint64_t)e->env_ipc_dstva < UTOP){
+		// need to map the shared page	
+		if (((uint64_t)srcva % PGSIZE) != 0 ){
+			return -E_INVAL;
+		}
+		if ( !(page = page_lookup(curenv->env_pml4e, srcva, &ptep)) ){
+			return -E_INVAL;
+		}
+
+		if ( !(perm & PTE_W) ){
+			return -E_INVAL;
+		}
+		if ( !(PGOFF(*ptep) & PTE_W) ){
+			return -E_INVAL;
+		}	
+
+		if ( (page_insert(e->env_pml4e, page, e->env_ipc_dstva, perm)) < 0 ){
+			return -E_NO_MEM;
+		}
+	
+		e->env_ipc_perm = perm;	
+	}
+	e->env_ipc_recving = false;
+	e->env_ipc_from = curenv->env_id;
+	e->env_ipc_value = value;
+	e->env_status = ENV_RUNNABLE;
+	return 0;
+
 	panic("sys_ipc_try_send not implemented");
 }
 
@@ -359,7 +398,21 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
+	if ( ((uint64_t)dstva < UTOP) &&((uint64_t)dstva % PGSIZE) != 0){
+		return -E_INVAL;
+	}
+
+	curenv->env_ipc_recving = true;
+	curenv->env_ipc_dstva = dstva;
+	
+	//reset everything else
+	curenv->env_ipc_value = 0;
+	curenv->env_ipc_from = 0;
+	curenv->env_ipc_perm = 0;
+	
+	//curenv->env_tf.tf_regs.reg_rax = 0;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	//sched_yield();
 	return 0;
 }
 
@@ -373,7 +426,6 @@ syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, 
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
 
-//	cprintf("syscall no : %d\n", syscallno);
 	if (syscallno == SYS_cputs){
 		sys_cputs((void *)a1, a2);
 		return 0;
