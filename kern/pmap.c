@@ -288,6 +288,8 @@ page_init(void)
 // count of the page - the caller must do these if necessary (either explicitly
 // or via page_insert).
 //
+// Be sure to set the pp_link field of the allocated page to NULL
+//
 // Returns NULL if out of free memory.
 //
 // Hint: use page2kva and memset
@@ -477,6 +479,7 @@ page_remove(pml4e_t *pml4e, void *va)
 tlb_invalidate(pml4e_t *pml4e, void *va)
 {
 	// Flush the entry only if we're modifying the current address space.
+	assert(pml4e!=NULL);
 	if (!curenv || curenv->env_pml4e == pml4e)
 		invlpg(va);
 }
@@ -910,6 +913,12 @@ page_check(void)
 	assert(check_va2pa(boot_pml4e, PGSIZE) == page2pa(pp1));
 	assert(pp1->pp_ref == 1);
 	assert(pp3->pp_ref == 1);
+
+	// Test re-inserting pp1 at PGSIZE.
+	// Thanks to Varun Agrawal for suggesting this test case.
+	assert(page_insert(boot_pml4e, pp1, (void*) PGSIZE, 0) == 0);
+	assert(pp1->pp_ref);
+	assert(pp1->pp_link == NULL);
 
 	// unmapping pp1 at PGSIZE should free it
 	page_remove(boot_pml4e, (void*) PGSIZE);
