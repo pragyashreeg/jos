@@ -14,7 +14,7 @@ diskaddr(uint64_t blockno)
 bool
 va_is_mapped(void *va)
 {
-	return (vpd[VPD(va)] & PTE_P) && (vpt[PPN(va)] & PTE_P);
+	return (vpml4e[VPML4E(va)] & PTE_P) && (vpde[VPDPE(va)] & PTE_P) && (vpd[VPD(va)] & PTE_P) && (vpt[PPN(va)] & PTE_P);
 }
 
 // Is this virtual address dirty?
