@@ -249,12 +249,8 @@ x64_vm_init(void)
 	pde_t *pgdir = KADDR(PTE_ADDR(pdpe[3]));
 	
 	lcr3(boot_cr3);
-//<<<<<<< HEAD
  
 	check_page_free_list(0);
-//=======
-	//panic("stop");
-//>>>>>>> lab3
 }
 
 
@@ -280,7 +276,12 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-
+	int i;
+	uint32_t kstacktop_i;
+	for(i=0;i<NCPU;i++){
+		kstacktop_i = KSTACKTOP - i*(KSTKSIZE + KSTKGAP);
+		boot_map_segment(boot_pml4e, kstacktop_i - KSTKSIZE,KSTKSIZE,PADDR(percpu_kstacks[i]),PTE_P | PTE_W);
+	}
 }
 
 // --------------------------------------------------------------
@@ -325,18 +326,21 @@ page_init(void)
 
 	size_t i;
 	struct Page *pp0;
-	int i_iophys,i_kend, i_bootstart, i_bootend; //hole indicess
+	int i_mp_entrypoint,i_iophys,i_kend, i_bootstart, i_bootend; //hole indicess
 	// so basically it links as follows , [1...]BOOTSTART...BOOTEND[...]IOPHYSMEM....KERNend[.... npages]	
 	i_iophys = PPN(PADDR(KERNBASE+IOPHYSMEM));
 	i_kend =PPN(PADDR(&envs[NENV])); // end points here
 	i_bootstart=PPN(PADDR(BOOT_PAGE_TABLE_START));
 	i_bootend = PPN(PADDR(BOOT_PAGE_TABLE_END));
+	i_mp_entrypoint = PPN(PADDR(KERNBASE+MPENTRY_PADDR));
+	
 	
 	page_free_list=&pages[1];
-	for (i=1;i<i_bootstart-1;i++){
-		pages[i].pp_ref=0;
-		pages[i].pp_link=&pages[i+1];
-	}//last page
+
+	for(i=1;i<i_mp_entrypoint-1;i++){
+	pages[i].pp_ref=0;
+	pages[i].pp_link=&pages[i+1];
+	}
 	pages[i].pp_ref=0;
 	pages[i].pp_link=&pages[i_bootend+1];
 	
@@ -546,7 +550,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create){
 		}
 		
 		page->pp_ref++;
-		pgdir[pgdir_index]= page2pa(page) | PTE_P  ;
+		pgdir[pgdir_index]= page2pa(page) | PTE_P | PTE_W | PTE_U;
 		ptep_table =(pte_t *)PTE_ADDR(pgdir[pgdir_index]);
 		
 	}
@@ -627,6 +631,7 @@ boot_map_segment(pml4e_t *pml4e, uintptr_t la, size_t size, physaddr_t pa, int p
 	int
 page_insert(pml4e_t *pml4e, struct Page *pp, void *va, int perm)
 {
+
 
 	pte_t *ptep=NULL;
         int pgdir_index,pdpe_index, pml4e_index;
@@ -716,7 +721,7 @@ page_lookup(pml4e_t *pml4e, void *va, pte_t **pte_store)
 		return NULL;
 	}	
 	
-	if (!pte_store){
+	if (pte_store){
 		*pte_store = ptep; // <- address of the page table entry
 	}
 
@@ -784,7 +789,7 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// value will be preserved between calls to mmio_map_region
 	// (just like nextfree in boot_alloc).
 	static uintptr_t base = MMIOBASE;
-
+	uintptr_t reserved = base;
 	// Reserve size bytes of virtual memory starting at base and
 	// map physical pages [pa,pa+size) to virtual addresses
 	// [base,base+size).  Since this is device memory and not
@@ -803,7 +808,12 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+	size_t round_size = ROUNDUP(size,PGSIZE);
+	if(base+round_size>MMIOLIM)
+		panic("MMIOLIM overflow");
+	boot_map_segment(boot_pml4e,base,size,pa,PTE_PCD|PTE_PWT|PTE_P|PTE_W);
+	base+=round_size;
+	return (void*) reserved;
 }
 
 static uintptr_t user_mem_check_addr;
@@ -1059,7 +1069,7 @@ check_boot_pml4e(pml4e_t *pml4e)
 	for (i = 0; i < npages * PGSIZE; i += PGSIZE);
 		assert(check_va2pa(pml4e, KERNBASE + i) == i);
 
-<<<<<<< HEAD
+//<<<<<<< HEAD
 	// check kernel stack
 	// (updated in lab 4 to check per-CPU kernel stacks)
 	for (n = 0; n < NCPU; n++) {
@@ -1070,12 +1080,7 @@ check_boot_pml4e(pml4e_t *pml4e)
 		for (i = 0; i < KSTKGAP; i += PGSIZE)
 			assert(check_va2pa(pml4e, base + i) == ~0);
 	}
-=======
-// check kernel stack
-	for (i = 0; i < KSTKSIZE; i += PGSIZE)
-		assert(check_va2pa(pml4e, KSTACKTOP - KSTKSIZE + i) == PADDR(bootstack) + i);
-	assert(check_va2pa(pml4e, KSTACKTOP - PTSIZE) == ~0);
->>>>>>> lab3
+//=======
 
 	pdpe_t *pdpe = KADDR(PTE_ADDR(boot_pml4e[0]));
 	pde_t  *pgdir = KADDR(PTE_ADDR(pdpe[3]));
