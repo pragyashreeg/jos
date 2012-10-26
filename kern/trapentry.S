@@ -39,7 +39,7 @@
 	.type name, @function;						\
 	.align 2;							\
 	name:								\
-	pushq $0;							\
+	pushq $0; 							\
 	pushq $(num);							\
 	jmp _alltraps
 
@@ -51,9 +51,68 @@
    pusha,popa so you will find these macros handy.
  */
 
+TRAPHANDLER_NOEC(divide_zero, T_DIVIDE);
+TRAPHANDLER_NOEC(debug,T_DEBUG);
+TRAPHANDLER_NOEC(non_mask_interrupt, T_NMI);
+TRAPHANDLER_NOEC(breakp,T_BRKPT);
+TRAPHANDLER_NOEC(overflow,T_OFLOW);
+TRAPHANDLER_NOEC(bound_range_exceeded,T_BOUND);
+TRAPHANDLER_NOEC(invalid_opcode, T_ILLOP);
+TRAPHANDLER_NOEC(device_not_avail,T_DEVICE);
+TRAPHANDLER(double_fault, T_DBLFLT);
+#TRAPHANDLER_NOEC(coprocessor_segment_overrun, 9);
+TRAPHANDLER(invalid_TSS, T_TSS);
+TRAPHANDLER(segment_not_present, T_SEGNP);
+TRAPHANDLER(stack_fault,T_STACK);
+TRAPHANDLER(general_protection,T_GPFLT);
+TRAPHANDLER(page_fault, T_PGFLT);
 
+TRAPHANDLER_NOEC(syscall_exception, T_SYSCALL);
+
+#TRAPHANDLER_NOEC(unknown_trap, 15);
+TRAPHANDLER_NOEC(floating_point_error, T_FPERR);
+TRAPHANDLER(alignment_check,T_ALIGN);
+TRAPHANDLER_NOEC(machine_check, T_MCHK);
+TRAPHANDLER_NOEC(SIMD_floating_point_exception, T_SIMDERR);
+TRAPHANDLER_NOEC(int_h_0 , IRQ_OFFSET);
+TRAPHANDLER_NOEC(int_h_1 , IRQ_OFFSET+1);
+TRAPHANDLER_NOEC(int_h_2 , IRQ_OFFSET+2);
+TRAPHANDLER_NOEC(int_h_3 , IRQ_OFFSET+3);
+TRAPHANDLER_NOEC(int_h_4 , IRQ_OFFSET+4);
+TRAPHANDLER_NOEC(int_h_5 , IRQ_OFFSET+5);
+TRAPHANDLER_NOEC(int_h_6 , IRQ_OFFSET+6);
+TRAPHANDLER_NOEC(int_h_7 , IRQ_OFFSET+7);
+TRAPHANDLER_NOEC(int_h_8 , IRQ_OFFSET+8);
+TRAPHANDLER_NOEC(int_h_9 , IRQ_OFFSET+9);
+TRAPHANDLER_NOEC(int_h_10 , IRQ_OFFSET+10);
+TRAPHANDLER_NOEC(int_h_11 , IRQ_OFFSET+11);
+TRAPHANDLER_NOEC(int_h_12 , IRQ_OFFSET+12);
+TRAPHANDLER_NOEC(int_h_13 , IRQ_OFFSET+13);
+TRAPHANDLER_NOEC(int_h_14 , IRQ_OFFSET+14);
+TRAPHANDLER_NOEC(int_h_15 , IRQ_OFFSET+15);
 
 /*
  * Lab 3: Your code here for _alltraps
  */
+.align 2
+_alltraps:
+	subq $16, %rsp
+	movw %ds, 8(%rsp) 
+	movw %es, 0(%rsp)
+	PUSHA
+	movw $GD_KD,%ax
+	movw %ax, %es
+	movw %ax, %ds
+	pushq %rsp
+	movq %rsp, %rdi
+	addq $8, %rdi
+	call trap
+/*
 
+	pushq $GD_KD
+	pushq $GD_KD
+	PUSHA
+	movl %esp, %edi
+	call trap
+	POPA	
+*/

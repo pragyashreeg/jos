@@ -1,2 +1,11 @@
+#<<<<<<< HEAD
 LAB=5
 PACKAGEDATE=Wed Sep 26 08:09:29 EDT 2012
+#=======
+#LAB=4
+#PACKAGEDATE=Wed Sep 19 09:55:18 EDT 2012
+
+
+
+
+#>>>>>>> lab4
