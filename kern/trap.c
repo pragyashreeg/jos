@@ -96,7 +96,7 @@ trap_init_percpu(void)
 	//     thiscpu->cpu_id;
 	//   - Use "thiscpu->cpu_ts" as the TSS for the current CPU,
 	//     rather than the global "ts" variable;
-	//   - Use gdt[(GD_TSS0 >> 3) + i] for CPU i's TSS descriptor;
+	//   - Use gdt[(GD_TSS0 >> 3) + 2*i] for CPU i's TSS descriptor;
 	//   - You mapped the per-CPU kernel stacks in mem_init_mp()
 	//
 	// ltr sets a 'busy' flag in the TSS selector, so if you
