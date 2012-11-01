@@ -23,7 +23,6 @@ fsipc(unsigned type, void *dstva)
 
 	if (debug)
 		cprintf("[%08x] fsipc %d %08x\n", thisenv->env_id, type, *(uint32_t *)&fsipcbuf);
-
 	ipc_send(fsenv, type, &fsipcbuf, PTE_P | PTE_W | PTE_U);
 	return ipc_recv(NULL, dstva, NULL);
 }
@@ -69,7 +68,30 @@ open(const char *path, int mode)
 	// file descriptor.
 
 	// LAB 5: Your code here.
-	panic("open not implemented");
+	int r = 0;
+	struct Fd *fd_store;
+
+	if ( strlen(path) >= MAXPATHLEN ){
+		cprintf("Path too long\n");
+		return -E_BAD_PATH;
+	}
+
+	r = fd_alloc( &fd_store );
+	if( r == -E_MAX_OPEN ){
+		cprintf("-E_MAX_PATH\n");	
+		return r;
+	}
+	
+	memmove( fsipcbuf.open.req_path, path, MAXPATHLEN );
+	//strcpy( fsipcbuf.open.req_path, path );
+	fsipcbuf.open.req_omode = mode;
+	
+	if( (r = fsipc( FSREQ_OPEN, fd_store )) < 0 ){
+		fd_close( fd_store, 0 );
+		return r;
+	}
+
+	return fd2num( fd_store );
 }
 
 // Flush the file descriptor.  After this the fileid is invalid.
@@ -100,7 +122,18 @@ devfile_read(struct Fd *fd, void *buf, size_t n)
 	// bytes read will be written back to fsipcbuf by the file
 	// system server.
 	// LAB 5: Your code here
-	panic("devfile_read not implemented");
+	int r=0;
+	memset( (char*)&fsipcbuf, 0, sizeof(union Fsipc));
+	fsipcbuf.read.req_fileid = fd->fd_file.id;
+	fsipcbuf.read.req_n = MIN(n, PGSIZE);// - sizeof(int));
+
+	r = fsipc(FSREQ_READ, NULL);	
+	if( r < 0 ){
+		cprintf("fsipc FSREQ_READ error: %e\n",r);
+		return r;
+	}
+	memmove(buf, fsipcbuf.readRet.ret_buf, r);
+	return r;
 }
 
 // Write at most 'n' bytes from 'buf' to 'fd' at the current seek position.
@@ -116,7 +149,21 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
 	// remember that write is always allowed to write *fewer*
 	// bytes than requested.
 	// LAB 5: Your code here
-	panic("devfile_write not implemented");
+	int r = 0;
+
+	memset( (char*)&fsipcbuf, 0, sizeof(union Fsipc));
+	fsipcbuf.write.req_fileid = fd->fd_file.id;
+	fsipcbuf.write.req_n = MIN(n, PGSIZE - (sizeof(int) + sizeof(size_t)) );
+	memmove( fsipcbuf.write.req_buf, buf, fsipcbuf.write.req_n );
+//	fsipcbuf.req_buf = buf; 
+
+	r = fsipc(FSREQ_WRITE, NULL);
+	if( r < 0 ) {
+		cprintf("fsipc FSREQ_WRITE error: %e\n",r);
+		return r;
+	}
+
+	return r;	
 }
 
 static int

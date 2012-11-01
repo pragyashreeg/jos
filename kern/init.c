@@ -69,10 +69,10 @@ i386_init(void)
 	// Touch all you want.
 //<<<<<<< HEAD
 	// ENV_CREATE(user_writemotd, ENV_TYPE_USER);
-	// ENV_CREATE(user_testfile, ENV_TYPE_USER);
-	// ENV_CREATE(user_icode, ENV_TYPE_USER);
+	ENV_CREATE(user_testfile, ENV_TYPE_USER);
+	ENV_CREATE(user_icode, ENV_TYPE_USER);
 //=======
-	ENV_CREATE(user_dumbfork, ENV_TYPE_USER);
+//	ENV_CREATE(user_dumbfork, ENV_TYPE_USER);
 //	ENV_CREATE(user_primes, ENV_TYPE_USER);
 //	ENV_CREATE(user_spin, ENV_TYPE_USER);
 //>>>>>>> lab4

@@ -33,6 +33,11 @@ bc_pgfault(struct UTrapframe *utf)
 	void *addr = (void *) utf->utf_fault_va;
 	uint64_t blockno = ((uint64_t)addr - DISKMAP) / BLKSIZE;
 	int r;
+        envid_t envid;
+        envid = thisenv->env_id;
+	void *blkaddr;
+        blkaddr = ROUNDDOWN(addr, PGSIZE);
+
 
 	// Check that the fault was within the block cache region
 	if (addr < (void*)DISKMAP || addr >= (void*)(DISKMAP + DISKSIZE))
@@ -49,13 +54,26 @@ bc_pgfault(struct UTrapframe *utf)
 	// the page dirty).
 	//
 	// LAB 5: Your code here
-	panic("bc_pgfault not implemented");
+
+	if( (r = sys_page_alloc(envid, blkaddr, PTE_SYSCALL)) < 0 ){
+		cprintf("sys_page_alloc error : %e\n",r);
+	}
+
+	if( (r = ide_read(blockno*BLKSECTS, blkaddr, BLKSECTS)) < 0 ){
+		cprintf("ide_read error : %e\n",r);		
+	}
+
+	if((r = sys_page_map(envid, blkaddr, envid, blkaddr, PTE_SYSCALL)) < 0){
+		cprintf("sys_page_map error : %e\n",r);		
+	}
 
 	// Check that the block we read was allocated. (exercise for
 	// the reader: why do we do this *after* reading the block
 	// in?)
+	//printf("bitmap: %d \n",bitmap[100]);
 	if (bitmap && block_is_free(blockno))
 		panic("reading free block %08x\n", blockno);
+
 }
 
 // Flush the contents of the block containing VA out to disk if
@@ -68,13 +86,28 @@ bc_pgfault(struct UTrapframe *utf)
 void
 flush_block(void *addr)
 {
-	uint64_t blockno = ((uint64_t)addr - DISKMAP) / BLKSIZE;
+        uint64_t blockno = ((uint64_t)addr - DISKMAP) / BLKSIZE;
+        envid_t envid;
+        envid = thisenv->env_id;
 
-	if (addr < (void*)DISKMAP || addr >= (void*)(DISKMAP + DISKSIZE))
-		panic("flush_block of bad va %08x", addr);
+	int r;
+        void *blkaddr;
+        blkaddr = ROUNDDOWN(addr, PGSIZE);
 
-	// LAB 5: Your code here.
-	panic("flush_block not implemented");
+        if (addr < (void*)DISKMAP || addr >= (void*)(DISKMAP + DISKSIZE))
+                panic("flush_block of bad va %08x", addr);
+
+        // LAB 5: Your code here.
+	if( !va_is_mapped(addr) || !va_is_dirty(addr) ){
+		return;
+	}
+	
+        if( (r = ide_write(blockno*BLKSECTS, addr, BLKSECTS)) < 0 ){
+                cprintf("ide_write error : %e\n",r);
+        }
+        if((r = sys_page_map(envid, blkaddr, envid, blkaddr, PTE_SYSCALL)) < 0){
+                cprintf("sys_page_map error : %e\n",r);
+	}
 }
 
 // Test that the block cache works, by smashing the superblock and

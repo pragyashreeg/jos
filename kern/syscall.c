@@ -136,7 +136,17 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	// LAB 5: Your code here.
 	// Remember to check whether the user has supplied us with a good
 	// address!
-	panic("sys_env_set_trapframe not implemented");
+	struct Env *e = NULL;
+	int r = 0;
+	if ((r = envid2env(envid, &e, 1)) < 0)
+		return -E_BAD_ENV;
+
+	if ( tf->tf_rip >= UTOP )	
+		return -1;
+	e->env_tf = *tf;
+	e->env_tf.tf_eflags |= FL_IF;
+	return 0;	
+
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -356,31 +366,40 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 	pte_t *ptep;
 
 	if (envid2env(envid, &e, 0) != 0){
+		cprintf("env doesn't exist: -E_BAD_ENV\n");
 		return -E_BAD_ENV;
 	}
 	
 	if (!e->env_ipc_recving){
+		cprintf("!e->env_ipc_recving: -E_IPC_NOT_RECV\n");
 		return -E_IPC_NOT_RECV;
 	}
 
 	e->env_ipc_perm = 0;	
-	if ( (uint64_t)e->env_ipc_dstva < UTOP){
+	//if ( (uint64_t)e->env_ipc_dstva < UTOP){
+	if ( (uint64_t) srcva < UTOP ){
 		// need to map the shared page	
 		if (((uint64_t)srcva % PGSIZE) != 0 ){
+			cprintf("srcva % PGSIZE) != 0 : error: %d\n", -E_INVAL);
+
 			return -E_INVAL;
 		}
 		if ( !(page = page_lookup(curenv->env_pml4e, srcva, &ptep)) ){
+			cprintf("page_lookup error: error: %d\n", -E_INVAL);
 			return -E_INVAL;
 		}
 
 		if ( !(perm & PTE_W) ){
+			cprintf("1)NO WRITE perm: -E_INVAL\n");
 			return -E_INVAL;
 		}
 		if ( !(PGOFF(*ptep) & PTE_W) ){
+			cprintf("2)NO WRITE perm: -E_INVAL\n");
 			return -E_INVAL;
 		}	
 
 		if ( (page_insert(e->env_pml4e, page, e->env_ipc_dstva, perm)) < 0 ){
+			cprintf("page_insert error\n");
 			return -E_NO_MEM;
 		}
 	
@@ -392,7 +411,6 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 	e->env_status = ENV_RUNNABLE;
 	return 0;
 
-	panic("sys_ipc_try_send not implemented");
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -475,10 +493,14 @@ syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, 
                 sys_yield();
                 return ret;
         }else if (syscallno == SYS_ipc_try_send){
-		ret = sys_ipc_try_send(a1, a2, (void *)a2, a3);
+		ret = sys_ipc_try_send(a1, a2, (void *)a3, a4);
 		return ret;
 	}else if ( syscallno == SYS_ipc_recv){
 		ret = sys_ipc_recv((void*)a1);
+		return ret;
+	}else if ( syscallno == SYS_env_set_trapframe ){
+		ret = sys_env_set_trapframe(a1, (struct Trapframe* )a2);
+//sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 		return ret;
 	}else {
 		return -E_INVAL;
