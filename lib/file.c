@@ -2,7 +2,7 @@
 #include <inc/string.h>
 #include <inc/lib.h>
 
-#define debug 0
+#define debug 0 
 
 union Fsipc fsipcbuf __attribute__((aligned(PGSIZE)));
 
@@ -100,6 +100,15 @@ devfile_read(struct Fd *fd, void *buf, size_t n)
 	// bytes read will be written back to fsipcbuf by the file
 	// system server.
 	// LAB 5: Your code here
+	int r;
+	fsipcbuf.read.req_fileid = fd->fd_file.id;
+	fsipcbuf.read.req_n = n;
+	
+	if ((r = fsipc(FSREQ_READ, NULL)) < 0)
+		return r;
+	
+	memcpy(buf, fsipcbuf.readRet.ret_buf, r);
+	return r;	
 	panic("devfile_read not implemented");
 }
 
@@ -111,11 +120,23 @@ devfile_read(struct Fd *fd, void *buf, size_t n)
 static ssize_t
 devfile_write(struct Fd *fd, const void *buf, size_t n)
 {
+	cprintf("dev file write\n");
 	// Make an FSREQ_WRITE request to the file system server.  Be
 	// careful: fsipcbuf.write.req_buf is only so large, but
 	// remember that write is always allowed to write *fewer*
 	// bytes than requested.
 	// LAB 5: Your code here
+	int r;
+	//cannot write more than this
+	int max = PGSIZE - (sizeof(int) + sizeof(size_t));
+	int write_bytes = n > max ? max : n;
+
+	fsipcbuf.write.req_fileid = fd->fd_file.id;
+	fsipcbuf.write.req_n = write_bytes;
+	memcpy(fsipcbuf.write.req_buf, buf, write_bytes);
+	
+	return fsipc(FSREQ_WRITE, NULL);
+	
 	panic("devfile_write not implemented");
 }
 

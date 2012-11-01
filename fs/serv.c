@@ -9,7 +9,7 @@
 #include "fs.h"
 
 
-#define debug 0
+#define debug 0 
 
 // The file system server maintains three structures
 // for each open file.
@@ -202,7 +202,9 @@ serve_read(envid_t envid, union Fsipc *ipc)
 {
 	struct Fsreq_read *req = &ipc->read;
 	struct Fsret_read *ret = &ipc->readRet;
-
+	
+	struct OpenFile *o;
+	int err;
 	if (debug)
 		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
@@ -215,6 +217,18 @@ serve_read(envid_t envid, union Fsipc *ipc)
 	// Hint: Use file_read.
 	// Hint: The seek position is stored in the struct Fd.
 	// LAB 5: Your code here
+	if ((err = openfile_lookup(envid, req->req_fileid, &o)) <0)
+		return err;
+		
+	size_t byte_count = req->req_n < PGSIZE ? req->req_n : PGSIZE; // we can read only PGSIZE bytes 
+	ssize_t byte_read = file_read(o->o_file, &(ret->ret_buf), byte_count, o->o_fd->fd_offset);
+
+	//update seek pos
+	if(byte_read >0)
+		o->o_fd->fd_offset += byte_read;
+
+	return byte_read;
+	
 	panic("serve_read not implemented");
 }
 
@@ -225,10 +239,24 @@ serve_read(envid_t envid, union Fsipc *ipc)
 int
 serve_write(envid_t envid, struct Fsreq_write *req)
 {
+	struct OpenFile *o;
+	int err;
+	
 	if (debug)
 		cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// LAB 5: Your code here.
+	if ((err = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+		return err;
+
+	//assert on this faulty size
+	assert(req->req_n <= (PGSIZE - (sizeof(int) + sizeof(size_t))));
+
+	ssize_t bytes_written = file_write(o->o_file, &(req->req_buf), req->req_n , o->o_fd->fd_offset);	
+	if (bytes_written > 0)
+		o->o_fd->fd_offset += bytes_written;
+
+	return bytes_written;
 	panic("serve_write not implemented");
 }
 

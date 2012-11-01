@@ -33,7 +33,7 @@ bc_pgfault(struct UTrapframe *utf)
 	void *addr = (void *) utf->utf_fault_va;
 	uint64_t blockno = ((uint64_t)addr - DISKMAP) / BLKSIZE;
 	int r;
-
+	
 	// Check that the fault was within the block cache region
 	if (addr < (void*)DISKMAP || addr >= (void*)(DISKMAP + DISKSIZE))
 		panic("page fault in FS: eip %08x, va %08x, err %04x",
@@ -49,13 +49,25 @@ bc_pgfault(struct UTrapframe *utf)
 	// the page dirty).
 	//
 	// LAB 5: Your code here
-	panic("bc_pgfault not implemented");
-
+	void *block_addr = diskaddr(blockno);
+	uint32_t sect_start = blockno*BLKSECTS;
+	uint32_t nosects = BLKSECTS; 
+	
+	if ((r = sys_page_alloc(thisenv->env_id, block_addr, PTE_P | PTE_U | PTE_W)) < 0)
+		panic("bc_pgfault: %e", r);
+	if (!va_is_mapped(block_addr)) panic("page alloc failed");
+	
+	if ( (r = ide_read(sect_start, block_addr, nosects)) < 0)
+		panic("ide_read: %e", r);
+	if ((r = sys_page_map(thisenv->env_id, block_addr, thisenv->env_id, block_addr, PTE_SYSCALL)) < 0)
+		panic("sys_page_map: %e", r);
+	
 	// Check that the block we read was allocated. (exercise for
 	// the reader: why do we do this *after* reading the block
 	// in?)
 	if (bitmap && block_is_free(blockno))
 		panic("reading free block %08x\n", blockno);
+
 }
 
 // Flush the contents of the block containing VA out to disk if
@@ -69,12 +81,21 @@ void
 flush_block(void *addr)
 {
 	uint64_t blockno = ((uint64_t)addr - DISKMAP) / BLKSIZE;
-
+	uint64_t *block_addr = diskaddr(blockno);
+	int r;
 	if (addr < (void*)DISKMAP || addr >= (void*)(DISKMAP + DISKSIZE))
 		panic("flush_block of bad va %08x", addr);
 
 	// LAB 5: Your code here.
-	panic("flush_block not implemented");
+	if(!va_is_mapped(block_addr) || !va_is_dirty(block_addr)) 
+	return;
+
+	if ((r = ide_write(blockno*BLKSECTS, block_addr, BLKSECTS)) < 0)
+		panic("ide_write: %e", r);
+	
+	if ((r = sys_page_map(thisenv->env_id, block_addr, thisenv->env_id, block_addr, PTE_SYSCALL)) < 0)
+		panic("sys_page_map: %e", r);
+
 }
 
 // Test that the block cache works, by smashing the superblock and
@@ -92,7 +113,6 @@ check_bc(void)
 	flush_block(diskaddr(1));
 	assert(va_is_mapped(diskaddr(1)));
 	assert(!va_is_dirty(diskaddr(1)));
-
 	// clear it out
 	sys_page_unmap(0, diskaddr(1));
 	assert(!va_is_mapped(diskaddr(1)));

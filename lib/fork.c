@@ -26,7 +26,7 @@ pgfault(struct UTrapframe *utf)
 
 	// LAB 4: Your code here.
 	
-//uint64_t utf_fault_va;  
+	//uint64_t utf_fault_va;  
 	pte_t pte = vpt[VPN(addr)];
 	
 	if(!(err & FEC_WR)){
@@ -51,7 +51,6 @@ pgfault(struct UTrapframe *utf)
 
 	void *tmp_va=(void *)ROUNDDOWN(addr,PGSIZE);
         memmove(PFTEMP, tmp_va, PGSIZE);
-
 
         if ((r = sys_page_map(0,PFTEMP, 0, tmp_va, PTE_P|PTE_U|PTE_W)) < 0)
                 panic("sys_page_map: %e", r);

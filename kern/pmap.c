@@ -639,15 +639,13 @@ page_insert(pml4e_t *pml4e, struct Page *pp, void *va, int perm)
         pdpe_t *pdpep=NULL;
         pde_t *pgdirp=NULL;
 	
-//	cprintf("in page insert,pml4e : %x , page : %x, va : %x, perm : %x\n",pml4e, page2pa( pp), va, perm );
+
 	ptep = pml4e_walk(pml4e, va, true);
 	if (ptep==NULL) return -E_NO_MEM;
 	
 	if (*ptep) {
-		//if (*ptep != page2pa(pp)) {
 		page_remove(pml4e, va);
-		//}
-		
+		if (page_free_list == pp) page_free_list = pp->pp_link;	
 	}
 	//page insert
 	*ptep = page2pa(pp) | perm | PTE_P;

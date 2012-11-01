@@ -363,20 +363,25 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 		return -E_IPC_NOT_RECV;
 	}
 
-	e->env_ipc_perm = 0;	
-	if ( (uint64_t)e->env_ipc_dstva < UTOP){
+	e->env_ipc_perm = 0;
+	if (((uint64_t)srcva < UTOP) && (uint64_t)e->env_ipc_dstva < UTOP){
+		//cprintf("sys_ipc_try_send, dstva:%x\n", e->env_ipc_dstva);
 		// need to map the shared page	
 		if (((uint64_t)srcva % PGSIZE) != 0 ){
+			cprintf("1");
 			return -E_INVAL;
 		}
 		if ( !(page = page_lookup(curenv->env_pml4e, srcva, &ptep)) ){
+			cprintf("2");
 			return -E_INVAL;
 		}
 
 		if ( !(perm & PTE_W) ){
+			cprintf("3, perm : %d\n", perm );
 			return -E_INVAL;
 		}
 		if ( !(PGOFF(*ptep) & PTE_W) ){
+			cprintf("4");
 			return -E_INVAL;
 		}	
 
@@ -391,7 +396,6 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 	e->env_ipc_value = value;
 	e->env_status = ENV_RUNNABLE;
 	return 0;
-
 	panic("sys_ipc_try_send not implemented");
 }
 
@@ -413,6 +417,7 @@ sys_ipc_recv(void *dstva)
 	if ( ((uint64_t)dstva < UTOP) &&((uint64_t)dstva % PGSIZE) != 0){
 		return -E_INVAL;
 	}
+//	cprintf("sys_ipc_recv2: dstva %x\n", dstva);
 
 	curenv->env_ipc_recving = true;
 	curenv->env_ipc_dstva = dstva;
@@ -437,7 +442,6 @@ syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, 
 	// Call the function corresponding to the 'syscallno' parameter.
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
-
 	if (syscallno == SYS_cputs){
 		sys_cputs((void *)a1, a2);
 		return 0;
@@ -475,7 +479,7 @@ syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, 
                 sys_yield();
                 return ret;
         }else if (syscallno == SYS_ipc_try_send){
-		ret = sys_ipc_try_send(a1, a2, (void *)a2, a3);
+		ret = sys_ipc_try_send(a1, a2, (void *)a3, a4);
 		return ret;
 	}else if ( syscallno == SYS_ipc_recv){
 		ret = sys_ipc_recv((void*)a1);

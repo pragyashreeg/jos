@@ -41,7 +41,6 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 			*perm_store = thisenv->env_ipc_perm;
 		result = thisenv->env_ipc_value;
 	}
-
 	return result;
 	panic("ipc_recv not implemented");
 }
