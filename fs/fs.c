@@ -156,6 +156,8 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 			if (bno < 0)return bno;
 			//clear the new block
 			memset(diskaddr(bno), 0, BLKSIZE);
+			//commit
+			f->f_indirect = bno;
 		}
 		*ppdiskbno = &( ((uint32_t *)(diskaddr(f->f_indirect)) )[filebno - NDIRECT]);
 	}

@@ -69,6 +69,23 @@ open(const char *path, int mode)
 	// file descriptor.
 
 	// LAB 5: Your code here.
+	struct Fd *fd;
+	int r=0;
+	if(strlen(path) >= MAXPATHLEN)
+		return -E_BAD_PATH;
+	
+	if ((r = fd_alloc(&fd)) < 0)
+		return r;
+	
+
+	strcpy(fsipcbuf.open.req_path, path);
+	fsipcbuf.open.req_omode = mode;
+
+	if ((r = fsipc(FSREQ_OPEN, fd)) < 0){
+		fd_close(fd,0);
+		return r;
+	}
+	return fd2num(fd);
 	panic("open not implemented");
 }
 
@@ -120,7 +137,6 @@ devfile_read(struct Fd *fd, void *buf, size_t n)
 static ssize_t
 devfile_write(struct Fd *fd, const void *buf, size_t n)
 {
-	cprintf("dev file write\n");
 	// Make an FSREQ_WRITE request to the file system server.  Be
 	// careful: fsipcbuf.write.req_buf is only so large, but
 	// remember that write is always allowed to write *fewer*
@@ -130,7 +146,7 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
 	//cannot write more than this
 	int max = PGSIZE - (sizeof(int) + sizeof(size_t));
 	int write_bytes = n > max ? max : n;
-
+	
 	fsipcbuf.write.req_fileid = fd->fd_file.id;
 	fsipcbuf.write.req_n = write_bytes;
 	memcpy(fsipcbuf.write.req_buf, buf, write_bytes);
