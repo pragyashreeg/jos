@@ -14,6 +14,8 @@
 #include <kern/picirq.h>
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
+#include <kern/time.h>
+#include <kern/pci.h>
 
 #include <inc/trap.h>
 
@@ -48,6 +50,11 @@ i386_init(void)
 
 	// Lab 4 multitasking initialization functions
 	pic_init();
+
+	// Lab 6 hardware initialization functions
+	time_init();
+	pci_init();
+
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
 	lock_kernel();
@@ -62,21 +69,28 @@ i386_init(void)
 	// Start fs.
 	ENV_CREATE(fs_fs, ENV_TYPE_FS);
 
+#if !defined(TEST_NO_NS)
+	// Start ns.
+	ENV_CREATE(net_ns, ENV_TYPE_NS);
+#endif
+
 #if defined(TEST)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
 	// Touch all you want.
-//<<<<<<< HEAD
 	// ENV_CREATE(user_writemotd, ENV_TYPE_USER);
-	ENV_CREATE(user_testfile, ENV_TYPE_USER);
-	ENV_CREATE(user_icode, ENV_TYPE_USER);
-//=======
-//	ENV_CREATE(user_dumbfork, ENV_TYPE_USER);
-//	ENV_CREATE(user_primes, ENV_TYPE_USER);
-//	ENV_CREATE(user_spin, ENV_TYPE_USER);
-//>>>>>>> lab4
+	// ENV_CREATE(user_testfile, ENV_TYPE_USER);
+	// ENV_CREATE(user_icode, ENV_TYPE_USER);
+	// ENV_CREATE(user_dumbfork, ENV_TYPE_USER);
+	// ENV_CREATE(user_primes, ENV_TYPE_USER);
+	// ENV_CREATE(user_spin, ENV_TYPE_USER);
+	
+	// ENV_CREATE(net_testoutput, ENV_TYPE_USER);
+	// ENV_CREATE(user_echosrv, ENV_TYPE_USER);
+	// ENV_CREATE(user_httpd, ENV_TYPE_USER);
 #endif // TEST*
+
 	// Schedule and run the first user environment!
 	sched_yield();
 	
