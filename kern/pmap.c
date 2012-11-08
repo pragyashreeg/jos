@@ -780,7 +780,7 @@ tlb_invalidate(pml4e_t *pml4e, void *va)
 // location.  Return the base of the reserved region.  size does *not*
 // have to be multiple of PGSIZE.
 //
-	void *
+void *
 mmio_map_region(physaddr_t pa, size_t size)
 {
 	// Where to start the next region.  Initially, this is the
@@ -827,7 +827,7 @@ static uintptr_t user_mem_check_addr;
 // A user program can access a virtual address if (1) the address is below
 // ULIM, and (2) the page table gives it permission.  These are exactly
 // the tests you should implement here.
-//
+///
 // If there is an error, set the 'user_mem_check_addr' variable to the first
 // erroneous virtual address.
 //
