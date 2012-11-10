@@ -26,6 +26,10 @@ enum {
 	E_NOT_EXEC	= 14,	// File not a valid executable
 	E_NOT_SUPP	= 15,	// Operation not supported
 
+	//Network error codes
+	E_TX_FAIL	= 16, 	//if transmission failed
+	E_PKT_BAD	= 17, 	//if packet is too big
+
 	MAXERROR
 };
 
