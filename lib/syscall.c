@@ -123,3 +123,10 @@ sys_time_msec(void)
 {
 	return (unsigned int) syscall(SYS_time_msec, 0, 0, 0, 0, 0, 0);
 }
+
+int 
+sys_try_send_packet(void *data, int len)
+{
+	return (int) syscall(SYS_try_send_packet, 1, (uint64_t)data, len, 0, 0, 0);
+
+}

@@ -456,7 +456,8 @@ sys_time_msec(void)
 	return time_msec();
 	panic("sys_time_msec not implemented");
 }
-int 
+
+static int 
 sys_try_send_packet(char *data, int len){
 	//check if user has permission to read
 	user_mem_assert(curenv, data, len, PTE_U | PTE_P);
