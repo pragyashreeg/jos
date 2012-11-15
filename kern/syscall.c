@@ -373,7 +373,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 	}
 	
 	if (!e->env_ipc_recving){
-		cprintf("!e->env_ipc_recving: -E_IPC_NOT_RECV\n");
+		//cprintf("!e->env_ipc_recving: -E_IPC_NOT_RECV\n");
 		return -E_IPC_NOT_RECV;
 	}
 
@@ -458,11 +458,16 @@ sys_time_msec(void)
 }
 
 static int 
-sys_try_send_packet(char *data, int len){
+sys_try_send_packet(void *data, int len){
 	//check if user has permission to read
 	user_mem_assert(curenv, data, len, PTE_U | PTE_P);
 	return e1000_transmit(data, len);
 	
+}
+static int
+sys_try_rcv_packet(void *data, int max_len){
+	user_mem_assert(curenv, data, max_len, PTE_U | PTE_P); //can this be a apossible bug ??
+	return e1000_receive(data, max_len);
 }
 // Dispatches to the correct kernel function, passing the arguments.
 int64_t
@@ -508,9 +513,9 @@ syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, 
 		ret = sys_env_set_pgfault_upcall(a1, (void *) a2);
 		return ret;
 	}else if (syscallno == SYS_yield){
-                sys_yield();
-                return ret;
-        }else if (syscallno == SYS_ipc_try_send){
+		sys_yield();
+		return ret;
+    }else if (syscallno == SYS_ipc_try_send){
 		ret = sys_ipc_try_send(a1, a2, (void *)a3, a4);
 		return ret;
 	}else if ( syscallno == SYS_ipc_recv){
@@ -524,6 +529,9 @@ syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, 
 		return ret;
 	}else if ( syscallno == SYS_try_send_packet){
 		ret = sys_try_send_packet((void *)a1, a2);
+		return ret;
+	}else if (syscallno == SYS_try_rcv_packet){
+		ret = sys_try_rcv_packet((void *)a1, a2);
 		return ret;
 	}else {
 		return -E_INVAL;

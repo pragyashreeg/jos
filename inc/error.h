@@ -27,8 +27,10 @@ enum {
 	E_NOT_SUPP	= 15,	// Operation not supported
 
 	//Network error codes
-	E_TX_FAIL	= 16, 	//if transmission failed
-	E_PKT_BAD	= 17, 	//if packet is too big
+	E_TX_FAIL	= 16, 	// transmission failed
+	E_PKT_BAD	= 17, 	// tx packet is malformed
+	E_RX_BAD    = 18,   // rx buff is malformed
+	E_RX_EMPTY   = 19,   // rx queue is empty
 
 	MAXERROR
 };

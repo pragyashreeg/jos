@@ -130,3 +130,9 @@ sys_try_send_packet(void *data, int len)
 	return (int) syscall(SYS_try_send_packet, 1, (uint64_t)data, len, 0, 0, 0);
 
 }
+
+int
+sys_try_rcv_packet(void *data, int max_len)
+{
+	return (int) syscall(SYS_try_rcv_packet, 0, (uint64_t)data, max_len, 0, 0, 0);
+}

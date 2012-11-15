@@ -1,6 +1,6 @@
 #include <inc/lib.h>
 
-#define debug		0
+#define debug	0	
 
 // Maximum number of file descriptors a program may hold open concurrently
 #define MAXFD		32
@@ -76,12 +76,16 @@ fd_lookup(int fdnum, struct Fd **fd_store)
 	struct Fd *fd;
 
 	if (fdnum < 0 || fdnum >= MAXFD) {
+		cprintf("bad fdnum\n");
 		if (debug)
-			cprintf("[%08x] bad fd %d\n", thisenv->env_id, fd);
+			cprintf("[%08x] bad fd %d\n", thisenv->env_id, fdnum);
 		return -E_INVAL;
 	}
+	cprintf("fdnum : %d\n", fdnum);
 	fd = INDEX2FD(fdnum);
+	//cprintf("fd = %p\n", fd);
 	if (!(vpd[VPD(fd)] & PTE_P) || !(vpt[VPN(fd)] & PTE_P)) {
+		cprintf("bad vpd\n");
 		if (debug)
 			cprintf("[%08x] closed fd %d\n", thisenv->env_id, fd);
 		return -E_INVAL;

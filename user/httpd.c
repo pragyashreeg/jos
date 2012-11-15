@@ -1,6 +1,7 @@
 #include <inc/lib.h>
 #include <lwip/sockets.h>
 #include <lwip/inet.h>
+#include <inc/fd.h>
 
 #define PORT 80
 #define VERSION "0.1"
@@ -73,11 +74,36 @@ send_header(struct http_request *req, int code)
 	return 0;
 }
 
+#define MAX_MSG_SIZE 1518
+
 static int
 send_data(struct http_request *req, int fd)
 {
 	// LAB 6: Your code here.
-	panic("send_data not implemented");
+	cprintf("I am here\n");
+	struct Stat file_stat;
+	char buffer[MAX_MSG_SIZE];
+	int err;
+
+	if ((err = fstat(fd, &file_stat)) < 0){
+		panic("file not found, %e", err);
+	}
+
+	if (file_stat.st_size > MAX_MSG_SIZE){
+		die("File size too big. Dont support msg chunking");
+	}
+
+	//read the file
+	if ( (err = readn(fd, buffer, file_stat.st_size)) < 0){
+		die("failed to read file");
+	}
+
+	//send to socket.
+	if ((err = write(req->sock, buffer, file_stat.st_size) ) < 0){
+		die("failed to write to socket");
+	}
+
+	return 0;
 }
 
 static int
@@ -216,6 +242,7 @@ send_file(struct http_request *req)
 	int r;
 	off_t file_size = -1;
 	int fd;
+	struct Stat file_stat;
 
 	// open the requested url for reading
 	// if the file does not exist, send a 404 error using send_error
@@ -223,7 +250,16 @@ send_file(struct http_request *req)
 	// set file_size to the size of the file
 
 	// LAB 6: Your code here.
-	panic("send_file not implemented");
+	r = stat(req->url, &file_stat);
+	fd = open(req->url, O_RDONLY);
+
+	if (r < 0 || fd < 0 || file_stat.st_isdir) {
+		r = send_error(req, errors[1].code); // 404
+		goto end;
+	}
+	file_size = file_stat.st_size;
+	r = send_data(req, fd);
+	goto end;
 
 	if ((r = send_header(req, 200)) < 0)
 		goto end;
@@ -237,7 +273,6 @@ send_file(struct http_request *req)
 	if ((r = send_header_fin(req)) < 0)
 		goto end;
 
-	r = send_data(req, fd);
 
 end:
 	close(fd);
@@ -314,14 +349,15 @@ umain(int argc, char **argv)
 	while (1) {
 		unsigned int clientlen = sizeof(client);
 		// Wait for client connection
+		cprintf("%x\n", serversock);
 		if ((clientsock = accept(serversock,
 					 (struct sockaddr *) &client,
 					 &clientlen)) < 0)
 		{
+			cprintf("client sock : %d\n", clientsock);
 			die("Failed to accept client connection");
 		}
 		handle_client(clientsock);
 	}
-
 	close(serversock);
 }
