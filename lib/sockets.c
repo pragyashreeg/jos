@@ -20,19 +20,16 @@ static int
 fd2sockid(int fd)
 {
 
-	cprintf("called with fd = %d\n", fd);
 	struct Fd *sfd;
 	int r;
 
 	if ((r = fd_lookup(fd, &sfd)) < 0) {
-		cprintf("fd_lookup() returns = %d\n", r);
 		return r;
 	}
 
 	if (sfd->fd_dev_id != devsock.dev_id)
 		return -E_NOT_SUPP;
 
-	cprintf("returning = %d\n",  sfd->fd_sock.sockid);
 	return sfd->fd_sock.sockid;
 }
 
@@ -47,7 +44,6 @@ alloc_sockfd(int sockid)
 		nsipc_close(sockid);
 		return r;
 	}
-	cprintf("inside alloc_sockfd\n");
 	sfd->fd_dev_id = devsock.dev_id;
 	sfd->fd_omode = O_RDWR;
 	sfd->fd_sock.sockid = sockid;
@@ -61,12 +57,10 @@ accept(int s, struct sockaddr *addr, socklen_t *addrlen)
 	if ((r = fd2sockid(s)) < 0){
 		cprintf("%e", r);
 		return r;}
-	cprintf("blocked on accept...\n");
 	if ((r = nsipc_accept(r, addr, addrlen)) < 0){
 		cprintf("2");
 		return r;
 	}
-	cprintf("unblocked on accept...\n");
 	return alloc_sockfd(r);
 }
 

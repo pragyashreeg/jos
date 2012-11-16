@@ -80,7 +80,6 @@ static int
 send_data(struct http_request *req, int fd)
 {
 	// LAB 6: Your code here.
-	cprintf("I am here\n");
 	struct Stat file_stat;
 	char buffer[MAX_MSG_SIZE];
 	int err;
@@ -349,12 +348,10 @@ umain(int argc, char **argv)
 	while (1) {
 		unsigned int clientlen = sizeof(client);
 		// Wait for client connection
-		cprintf("%x\n", serversock);
 		if ((clientsock = accept(serversock,
 					 (struct sockaddr *) &client,
 					 &clientlen)) < 0)
 		{
-			cprintf("client sock : %d\n", clientsock);
 			die("Failed to accept client connection");
 		}
 		handle_client(clientsock);
