@@ -19,13 +19,17 @@ struct Dev devsock =
 static int
 fd2sockid(int fd)
 {
+
 	struct Fd *sfd;
 	int r;
 
-	if ((r = fd_lookup(fd, &sfd)) < 0)
+	if ((r = fd_lookup(fd, &sfd)) < 0) {
 		return r;
+	}
+
 	if (sfd->fd_dev_id != devsock.dev_id)
 		return -E_NOT_SUPP;
+
 	return sfd->fd_sock.sockid;
 }
 
@@ -40,7 +44,6 @@ alloc_sockfd(int sockid)
 		nsipc_close(sockid);
 		return r;
 	}
-
 	sfd->fd_dev_id = devsock.dev_id;
 	sfd->fd_omode = O_RDWR;
 	sfd->fd_sock.sockid = sockid;
@@ -51,10 +54,13 @@ int
 accept(int s, struct sockaddr *addr, socklen_t *addrlen)
 {
 	int r;
-	if ((r = fd2sockid(s)) < 0)
+	if ((r = fd2sockid(s)) < 0){
+		cprintf("%e", r);
+		return r;}
+	if ((r = nsipc_accept(r, addr, addrlen)) < 0){
+		cprintf("2");
 		return r;
-	if ((r = nsipc_accept(r, addr, addrlen)) < 0)
-		return r;
+	}
 	return alloc_sockfd(r);
 }
 

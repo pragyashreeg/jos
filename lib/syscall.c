@@ -19,7 +19,8 @@ syscall(int num, int check, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, 
 	// The last clause tells the assembler that this can
 	// potentially change the condition codes and arbitrary
 	// memory locations.
-
+	
+	//cprintf("arg list : int num %x ,check %x, a1 %x, a2 %x, a3 %x, a4 %x, a5 %x\n");
 	asm volatile("int %1\n"
 		: "=a" (ret)
 		: "i" (T_SYSCALL),
@@ -121,4 +122,17 @@ unsigned int
 sys_time_msec(void)
 {
 	return (unsigned int) syscall(SYS_time_msec, 0, 0, 0, 0, 0, 0);
+}
+
+int 
+sys_try_send_packet(void *data, int len)
+{
+	return (int) syscall(SYS_try_send_packet, 1, (uint64_t)data, len, 0, 0, 0);
+
+}
+
+int
+sys_try_rcv_packet(void *data, int max_len)
+{
+	return (int) syscall(SYS_try_rcv_packet, 0, (uint64_t)data, max_len, 0, 0, 0);
 }

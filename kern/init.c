@@ -17,6 +17,8 @@
 #include <kern/time.h>
 #include <kern/pci.h>
 
+#include <inc/trap.h>
+
 static void boot_aps(void);
 
 
@@ -35,7 +37,6 @@ i386_init(void)
 	cons_init();
 
 	cprintf("6828 decimal is %o octal!\n", 6828);
-
 	// Lab 2 memory management initialization functions
 	x64_vm_init();
 
@@ -56,14 +57,14 @@ i386_init(void)
 
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
-
+	lock_kernel();
 	// Starting non-boot CPUs
 	boot_aps();
-
 	// Should always have idle processes at first.
 	int i;
 	for (i = 0; i < NCPU; i++)
 		ENV_CREATE(user_idle, ENV_TYPE_IDLE);
+	
 
 	// Start fs.
 	ENV_CREATE(fs_fs, ENV_TYPE_FS);
@@ -79,6 +80,18 @@ i386_init(void)
 #else
 	// Touch all you want.
 	ENV_CREATE(user_icode, ENV_TYPE_USER);
+
+	// ENV_CREATE(user_writemotd, ENV_TYPE_USER);
+	// ENV_CREATE(user_testfile, ENV_TYPE_USER);
+	// ENV_CREATE(user_icode, ENV_TYPE_USER);
+	// ENV_CREATE(user_dumbfork, ENV_TYPE_USER);
+	// ENV_CREATE(user_primes, ENV_TYPE_USER);
+	// ENV_CREATE(user_spin, ENV_TYPE_USER);
+	
+	// ENV_CREATE(net_testoutput, ENV_TYPE_USER);
+	// ENV_CREATE(user_echosrv, ENV_TYPE_USER);
+	// ENV_CREATE(user_httpd, ENV_TYPE_USER);
+
 #endif // TEST*
 
 	// Should not be necessary - drains keyboard because interrupt has given up.
@@ -86,6 +99,12 @@ i386_init(void)
 
 	// Schedule and run the first user environment!
 	sched_yield();
+	
+	// We only have one user environment for now, so just run it.
+	//	env_run(&envs[0]);
+       	// Test the stack backtrace function (lab 1 only)
+//	test_backtrace(5);
+
 }
 
 // While boot_aps is booting a given CPU, it communicates the per-core
@@ -117,6 +136,7 @@ boot_aps(void)
 		while(c->cpu_status != CPU_STARTED)
 			;
 	}
+
 }
 
 // Setup code for APs
@@ -137,9 +157,8 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
-
-	// Remove this after you finish Exercise 4
-	for (;;);
+	lock_kernel();
+	sched_yield();	
 }
 
 /*

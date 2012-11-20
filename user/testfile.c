@@ -14,6 +14,7 @@ xopen(const char *path, int mode)
 	fsipcbuf.open.req_omode = mode;
 
 	fsenv = ipc_find_env(ENV_TYPE_FS);
+	cprintf(" CLIENT Fp 3 \n");
 	ipc_send(fsenv, FSREQ_OPEN, &fsipcbuf, PTE_P | PTE_W | PTE_U);
 	return ipc_recv(NULL, FVA, NULL);
 }
@@ -27,12 +28,15 @@ umain(int argc, char **argv)
 	struct Stat st;
 	char buf[512];
 
+	cprintf(" CLIENT RUNNING : fp 1\n");
+
 	// We open files manually first, to avoid the FD layer
 	if ((r = xopen("/not-found", O_RDONLY)) < 0 && r != -E_NOT_FOUND)
 		panic("serve_open /not-found: %e", r);
 	else if (r >= 0)
 		panic("serve_open /not-found succeeded!");
 
+	cprintf(" CLIENT RUNNING : fp 2\n");
 	if ((r = xopen("/newmotd", O_RDONLY)) < 0)
 		panic("serve_open /newmotd: %e", r);
 	if (FVA->fd_dev_id != 'f' || FVA->fd_offset != 0 || FVA->fd_omode != O_RDONLY)
