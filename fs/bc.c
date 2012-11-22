@@ -71,8 +71,8 @@ bc_pgfault(struct UTrapframe *utf)
 	// the reader: why do we do this *after* reading the block
 	// in?)
 	//printf("bitmap: %d \n",bitmap[100]);
-	if (bitmap && block_is_free(blockno))
-		panic("reading free block %08x\n", blockno);
+	//if (bitmap && block_is_free(blockno))
+		//panic("reading free block %08x\n", blockno);
 
 }
 

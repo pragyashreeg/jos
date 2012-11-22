@@ -87,6 +87,7 @@ spawn(const char *prog, const char **argv)
 
 	if ((r = open(prog, O_RDONLY)) < 0)
 		return r;
+
 	fd = r;
 
 	// Read elf header
@@ -101,6 +102,7 @@ spawn(const char *prog, const char **argv)
 	// Create new child environment
 	if ((r = sys_exofork()) < 0)
 		return r;
+
 	child = r;
 
 	// Set up trap frame, including initial stack.
@@ -301,6 +303,24 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 7: Your code here.
+	int r, pn;
+
+	uint8_t *va;
+
+	for (va = (uint8_t *)0 ; va < (uint8_t *)UTOP; va += PGSIZE ){
+
+		if ( (vpml4e[VPML4E(va)]&PTE_P) && (vpde[VPDPE(va)]&PTE_P) && (vpd[VPD(va)] & PTE_P) && (vpt[VPN(va)] & PTE_P) ){
+			pn = VPN(va);
+			//cprintf("va %x, pn %d, vpt[pn]: %x\n",va, pn,  vpt[pn]);
+			if ( vpt[pn] & PTE_SHARE ) {
+				if( (r = sys_page_map(0, (void*)va, child, (void*)va, ( PGOFF(vpt[pn]) & PTE_USER) | PTE_SHARE) ) < 0)
+										panic("sys_page_map error : %e\n",r);
+			}
+
+		}
+
+	}
+
 	return 0;
 }
 

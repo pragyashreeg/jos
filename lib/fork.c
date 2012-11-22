@@ -26,13 +26,13 @@ pgfault(struct UTrapframe *utf)
 
 	// LAB 4: Your code here.
 	
-//uint64_t utf_fault_va;  
-	pte_t pte = vpt[VPN(addr)];
+	// uint64_t utf_fault_va;
+	//pte_t pte = vpt[VPN(addr)];
 	
 	if(!(err & FEC_WR)){
 		panic("Denied write:%0x %e",(uint64_t)addr,err);
 	}
-	if(!(pte & PTE_COW)){
+	if(!(vpt[VPN(addr)] & PTE_COW)){
 		panic("Denied COW: %e",err);
 	}
 	// Allocate a new page, map it at a temporary location (PFTEMP),
@@ -53,8 +53,10 @@ pgfault(struct UTrapframe *utf)
         memmove(PFTEMP, tmp_va, PGSIZE);
 
 
-        if ((r = sys_page_map(0,PFTEMP, 0, tmp_va, PTE_P|PTE_U|PTE_W)) < 0)
-                panic("sys_page_map: %e", r);
+    if ((r = sys_page_map(0,PFTEMP, 0, tmp_va, PTE_P|PTE_U|PTE_W)) < 0)
+        panic("sys_page_map: %e", r);
+
+
 
 
 
@@ -85,16 +87,23 @@ duppage(envid_t envid, unsigned pn)
 	if (va > UTOP ){
 		panic("above utop\n");
 	}
-	
+
+	if ( PGOFF(vpt[pn]) & PTE_SHARE){
+		cprintf("in sharepage\n");
+		if( (r = sys_page_map(0, (void*)va, envid, (void*)va, (PGOFF(vpt[pn]) & PTE_USER) | PTE_SHARE)) < 0)
+					panic("sys_page_map error : %e\n",r);
+		return 0;
+	}
+
 	if((vpt[pn] & PTE_W) || (vpt[pn] & PTE_COW)){	
-		if((r = sys_page_map(0, (void*)va, envid, (void*)va, PTE_P | PTE_U | PTE_COW ))<0)
-			panic("sys_page_map error : %e\n",r);
+		if((r = sys_page_map(0, (void*)va, envid, (void*)va, PTE_P | PTE_U | PTE_COW )) <0)
+			panic("sys_page_map error  : %e\n",r);
 			
-		if((r=sys_page_map(0,(void*)va,thisenv->env_id,(void*)va,PTE_P | PTE_U | PTE_COW))<0)
-			panic("sys_page_map error : %e\n",r);
+		if((r=sys_page_map(0,(void*)va,0,(void*)va, PTE_P | PTE_U | PTE_COW)) <0)
+			panic("sys_page_map error in  : %e\n",r);
 
 	}else {
-		if ((r = sys_page_map(0, (void *)va, envid, (void*)va, PGOFF(vpt[pn])| PTE_COW | PTE_P | PTE_U )) < 0){
+		if ((r = sys_page_map(0, (void *)va, envid, (void*)va, (PGOFF(vpt[pn]) & PTE_USER) | PTE_P | PTE_U )) < 0){
 		panic("sys page map error: %e\n",r );
 	}
 	}
@@ -133,59 +142,26 @@ fork(void)
 		return 0;
 	}	
 	
-	uint8_t *va ,*stack;
+	uint8_t *stack;
+	uint32_t va;
 	extern unsigned char end[];
-	for (va = (uint8_t *)UTEXT ; va < (uint8_t *)end; va += PGSIZE ){
-		if (vpt[VPN(va)] != 0){
-			duppage(envid, (uint64_t)va / PGSIZE);
+
+	for (va = 0 ; va < UTOP; va += PGSIZE ){
+		if ((vpml4e[VPML4E(va)] & PTE_P ) && (vpde[VPDPE(va)] & PTE_P ) && (vpd[VPD(va)] & PTE_P ) && (vpt[VPN(va)] & PTE_P)){
+			if ((va != (UXSTACKTOP - PGSIZE)) && (va != (USTACKTOP - PGSIZE))){
+				duppage(envid, (uint64_t)va / PGSIZE);
+			}
 		}	
 	}
 
 	// copy the stack
-	duppage(envid, (uint64_t)(USTACKTOP - PGSIZE) / PGSIZE);
-	
-	#if 0
-	int i , j, pn, pn_uxstacktop = (UXSTACKTOP - PGSIZE) / PGSIZE;
-	for (i = 0; i < PDX(UTOP); i++ ){
-		if ((vpd[i] & PTE_P )){ // pgdir entry present?i
-			for (j = 0; j < NPTENTRIES; j++ ){
-				pn = i * NPTENTRIES + j;
-				if (pn != pn_uxstacktop){
-					duppage(envid, pn);
-				}else {
-					cprintf("hello world");
-				}
-				
-			}
-		}
+	// duppage(envid, (uint64_t)(USTACKTOP - PGSIZE) / PGSIZE);
+
+	if ((r = sys_page_alloc(envid,(void*)(USTACKTOP - PGSIZE), PTE_P | PTE_W | PTE_U ))<0){
+		panic("sys_page_alloc error: %e\n", r);
+	}else {
+		// deep copy the stack
 	}
-	panic("jhj");
-	for (pn=0;pn<VPN(UTOP);pn++){
-		
-   		cprintf("(VPN(UXSTACKTOP-PGSIZE):%0x\n",(VPN(UXSTACKTOP-PGSIZE)));
-//		cprintf("%0x\n", pn <<PTXSHIFT);
-		if((pn!=(VPN(UXSTACKTOP-PGSIZE) ))&(vpt[pn] & PTE_P)){
-			 duppage(envid,pn);
-			panic("after duppage");
-		}
-		
-		cprintf("\nentered loop to map \n");
-		cprintf("%x\n", pn <<PTXSHIFT);
-
-		if((vpd[pn]&PTE_P)&if((pn!=(VPN(UXSTACKTOP-PGSIZE) ))){
-			if(vpt[pn]&PTE_W ||vpt[pn]&PTE_COW ){
-				cprintf("%x\n", pn <<PTXSHIFT);
-				duppage(envid,pn);
-			}
-			else{
-				 va = pn <<PTXSHIFT ;
-				cprintf("%x\n",va);
-				 if((r=sys_page_map(0,(void*)va,envid,(void*)va,PGOFF(vpt[pn])))<0)
-		                        panic("sys_page_map error : %e\n",r);
-			}
-		}		
-		#endif
-
 
 	if((r = sys_page_alloc(envid,(void*)(UXSTACKTOP - PGSIZE), PTE_P | PTE_W | PTE_U ))<0)	
 		panic("sys_page_alloc error: %e\n",r);

@@ -25,7 +25,9 @@ umain(int argc, char **argv)
 		strcpy(VA, msg);
 		exit();
 	}
+
 	wait(r);
+
 	cprintf("fork handles PTE_SHARE %s\n", strcmp(VA, msg) == 0 ? "right" : "wrong");
 
 	// check spawn

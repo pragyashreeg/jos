@@ -63,8 +63,10 @@ static const char *trapname(int trapno)
 		return excnames[trapno];
 	if (trapno == T_SYSCALL) //48
 		return "System call";
-	if (trapno >= IRQ_OFFSET && trapno < IRQ_OFFSET + 16)
+	if (trapno >= IRQ_OFFSET && trapno < IRQ_OFFSET + 16){
+		cprintf("trap no: %d\n", trapno);
 		return "Hardware Interrupt";
+	}
 	return "(unknown trap)";
 }
 
@@ -101,21 +103,21 @@ trap_init(void)
 	SETGATE(idt[48],0,GD_KT,syscall_exception,3);	
 
 	SETGATE(idt[IRQ_OFFSET],0,GD_KT,int_h_0,0);
-        SETGATE(idt[IRQ_OFFSET+1],0,GD_KT,int_h_1,0);
-        SETGATE(idt[IRQ_OFFSET+2],0,GD_KT,int_h_2,0);
-        SETGATE(idt[IRQ_OFFSET+3],0,GD_KT,int_h_3,0);
-        SETGATE(idt[IRQ_OFFSET+4],0,GD_KT,int_h_4,0);
-        SETGATE(idt[IRQ_OFFSET+5],0,GD_KT,int_h_5,0);
-        SETGATE(idt[IRQ_OFFSET+6],0,GD_KT,int_h_6,0);
-        SETGATE(idt[IRQ_OFFSET+7],0,GD_KT,int_h_7,0);
-        SETGATE(idt[IRQ_OFFSET+8],0,GD_KT,int_h_8,0);
-        SETGATE(idt[IRQ_OFFSET+9],0,GD_KT,int_h_9,0);
-        SETGATE(idt[IRQ_OFFSET+10],0,GD_KT,int_h_10,0);
-        SETGATE(idt[IRQ_OFFSET+11],0,GD_KT,int_h_11,0);
-        SETGATE(idt[IRQ_OFFSET+12],0,GD_KT,int_h_12,0);
-        SETGATE(idt[IRQ_OFFSET+13],0,GD_KT,int_h_13,0);
-        SETGATE(idt[IRQ_OFFSET+14],0,GD_KT,int_h_14,0);
-        SETGATE(idt[IRQ_OFFSET+15],0,GD_KT,int_h_15,0);
+    SETGATE(idt[IRQ_OFFSET+1],0,GD_KT,int_h_1,0);
+    SETGATE(idt[IRQ_OFFSET+2],0,GD_KT,int_h_2,0);
+    SETGATE(idt[IRQ_OFFSET+3],0,GD_KT,int_h_3,0);
+    SETGATE(idt[IRQ_OFFSET+4],0,GD_KT,int_h_4,0);
+    SETGATE(idt[IRQ_OFFSET+5],0,GD_KT,int_h_5,0);
+    SETGATE(idt[IRQ_OFFSET+6],0,GD_KT,int_h_6,0);
+    SETGATE(idt[IRQ_OFFSET+7],0,GD_KT,int_h_7,0);
+    SETGATE(idt[IRQ_OFFSET+8],0,GD_KT,int_h_8,0);
+    SETGATE(idt[IRQ_OFFSET+9],0,GD_KT,int_h_9,0);
+    SETGATE(idt[IRQ_OFFSET+10],0,GD_KT,int_h_10,0);
+    SETGATE(idt[IRQ_OFFSET+11],0,GD_KT,int_h_11,0);
+    SETGATE(idt[IRQ_OFFSET+12],0,GD_KT,int_h_12,0);
+    SETGATE(idt[IRQ_OFFSET+13],0,GD_KT,int_h_13,0);
+    SETGATE(idt[IRQ_OFFSET+14],0,GD_KT,int_h_14,0);
+    SETGATE(idt[IRQ_OFFSET+15],0,GD_KT,int_h_15,0);
 
 	// Per-CPU setup
 	trap_init_percpu();
@@ -264,6 +266,15 @@ trap_dispatch(struct Trapframe *tf)
 
 	// Handle keyboard and serial interrupts.
 	// LAB 7: Your code here.
+	if (tf->tf_trapno ==  IRQ_OFFSET + IRQ_KBD){
+		kbd_intr();
+		return;
+	}
+
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SERIAL){
+		serial_intr();
+		return;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
@@ -346,7 +357,7 @@ page_fault_handler(struct Trapframe *tf)
 
 	// LAB 3: Your code here.
 	if (tf->tf_cs == GD_KT) {
-		print_trapframe(tf);
+		//print_trapframe(tf);
 		panic("Page fault in kernel mode");
 	}
 	
@@ -383,41 +394,7 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
-/*
-	if (curenv->env_pgfault_upcall){ // we have a handler
-		user_mem_assert(curenv, (void*)(UXSTACKTOP - PGSIZE),PGSIZE, PTE_P | PTE_W | PTE_U );
-		uint64_t stack_ex;
-		struct UTrapframe *utf;
 
-		if ( (UXSTACKTOP-PGSIZE) <= tf->tf_rsp && tf->tf_rsp <= (UXSTACKTOP-1))
-			//recursive
-			stack_ex = tf->tf_rsp - 8;
-		else 
-			stack_ex = tf->tf_rsp;
-		
-		if ((stack_ex - sizeof(struct UTrapframe)) > UXSTACKTOP - PGSIZE){
-			//contruct the trap frame now
-			utf = (struct UTrapframe *)(stack_ex - sizeof(struct UTrapframe));
-			utf->utf_fault_va = fault_va;
-			utf->utf_err = tf->tf_err;
-			utf->utf_regs = tf->tf_regs;
-			utf->utf_rip = tf->tf_rip;
-			utf->utf_eflags = tf->tf_eflags;
-			utf->utf_rsp = tf->tf_rsp;
-		
-			tf->tf_rsp = (uint64_t)stack_ex;
-			tf->tf_rip = (uint64_t)curenv->env_pgfault_upcall;   		
-			
-			env_run(curenv);
-		}	
-
-	}
-	
-	cprintf("[%08x] user fault va %08x ip %08x\n",
-	curenv->env_id, fault_va, tf->tf_rip);
-	print_trapframe(tf);
-	env_destroy(curenv);
-	*/
 
 	if ( !curenv->env_pgfault_upcall || ( USTACKTOP < tf->tf_rsp && tf->tf_rsp < UXSTACKTOP-PGSIZE )){
 		// Destroy the env if user pf handler not defined OR UXstack overflows
@@ -427,6 +404,7 @@ page_fault_handler(struct Trapframe *tf)
 		env_destroy(curenv);
 		return;
 	}
+	//print_trapframe(tf);
 	//now build teh user trap frame
 	struct UTrapframe utf;
 	uintptr_t stack_pos;
