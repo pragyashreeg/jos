@@ -23,7 +23,7 @@ int
 e1000_attach(struct pci_func *pcif){
 	pci_func_enable(pcif);
 	e1000 = mmio_map_region(pcif->reg_base[0], pcif->reg_size[0]);
-	cprintf("mmio at %x\n", pcif->reg_base[0]);
+	//cprintf("mmio at %x\n", pcif->reg_base[0]);
 	cprintf("device status register : %x\n", e1000[( E1000_STATUS / E1000_SIZE )]);		
 	init_tx();
 	init_rx();

@@ -58,8 +58,6 @@ pgfault(struct UTrapframe *utf)
 
 
 
-
-
 }
 
 //
@@ -89,7 +87,7 @@ duppage(envid_t envid, unsigned pn)
 	}
 
 	if ( PGOFF(vpt[pn]) & PTE_SHARE){
-		cprintf("in sharepage\n");
+		//cprintf("in sharepage\n");
 		if( (r = sys_page_map(0, (void*)va, envid, (void*)va, (PGOFF(vpt[pn]) & PTE_USER) | PTE_SHARE)) < 0)
 					panic("sys_page_map error : %e\n",r);
 		return 0;
@@ -137,11 +135,12 @@ fork(void)
 		panic("sys_exofork error: %e\n",envid);
 
 	if(envid == 0){
-		cprintf("I am child\n");
 		thisenv = &envs[ENVX(sys_getenvid())];
 		return 0;
 	}	
 	
+
+
 	uint8_t *stack;
 	uint32_t va;
 	extern unsigned char end[];
@@ -154,18 +153,32 @@ fork(void)
 		}	
 	}
 
-	// copy the stack
-	// duppage(envid, (uint64_t)(USTACKTOP - PGSIZE) / PGSIZE);
+	// copy the stack : shallow
+	//duppage(envid, (uint64_t)(USTACKTOP - PGSIZE) / PGSIZE);
 
 	if ((r = sys_page_alloc(envid,(void*)(USTACKTOP - PGSIZE), PTE_P | PTE_W | PTE_U ))<0){
 		panic("sys_page_alloc error: %e\n", r);
+
 	}else {
-		// deep copy the stack
+		if ((r = sys_page_alloc(0, PFTEMP, PTE_P|PTE_U|PTE_W)) < 0)
+	        panic("sys_page_alloc: %e", r);
+
+		memmove(PFTEMP, (void *)(USTACKTOP - PGSIZE), PGSIZE);
+
+		if ((r = sys_page_map(0,PFTEMP, envid, (void *)(USTACKTOP - PGSIZE) , PTE_P|PTE_U|PTE_W)) < 0)
+	        panic("sys_page_map: %e", r);
 	}
 
 	if((r = sys_page_alloc(envid,(void*)(UXSTACKTOP - PGSIZE), PTE_P | PTE_W | PTE_U ))<0)	
 		panic("sys_page_alloc error: %e\n",r);
 
+/*
+	if ((r = sys_page_alloc(0, PFTEMP, PTE_P|PTE_U|PTE_W)) < 0)
+	    panic("sys_page_alloc: %e", r);
+	memmove(PFTEMP, (void *)(UXSTACKTOP - PGSIZE), PGSIZE);
+	if ((r = sys_page_map(0,PFTEMP, envid, (void *)(UXSTACKTOP - PGSIZE) , PTE_P|PTE_U|PTE_W)) < 0)
+	     panic("sys_page_map: %e", r);
+*/
 
 	if((r=sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall)))
 		panic("sys_env_set_pgfault_upcall error: %e\n",r);

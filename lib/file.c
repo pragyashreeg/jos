@@ -82,8 +82,8 @@ open(const char *path, int mode)
 		return r;
 	}
 	
-	memmove( fsipcbuf.open.req_path, path, MAXPATHLEN );
-	//strcpy( fsipcbuf.open.req_path, path );
+	//memmove( fsipcbuf.open.req_path, path, strlen());
+	strcpy( fsipcbuf.open.req_path, path );
 	fsipcbuf.open.req_omode = mode;
 	
 	if( (r = fsipc( FSREQ_OPEN, fd_store )) < 0 ){
