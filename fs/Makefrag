@@ -19,25 +19,21 @@ USERAPPS :=		$(USERAPPS) \
 			$(OBJDIR)/user/cat \
 			$(OBJDIR)/user/echo \
 			$(OBJDIR)/user/init \
-			$(OBJDIR)/user/ls \
-			$(OBJDIR)/user/lsfd \
-			$(OBJDIR)/user/num \
-			$(OBJDIR)/user/forktree \
 			$(OBJDIR)/user/primes \
 			$(OBJDIR)/user/primespipe \
 			$(OBJDIR)/user/sh \
-			$(OBJDIR)/user/testfdsharing \
-			$(OBJDIR)/user/testkbd \
-			$(OBJDIR)/user/testpipe \
-			$(OBJDIR)/user/testpteshare \
-			$(OBJDIR)/user/testshell \
-			$(OBJDIR)/user/testmalloc
-
+			$(OBJDIR)/user/hello \
+			$(OBJDIR)/user/ls \
+			$(OBJDIR)/user/lsfd \
+			$(OBJDIR)/user/num \
+			$(OBJDIR)/user/insmod 
+			
 FSIMGTXTFILES :=	$(FSIMGTXTFILES) \
 			fs/lorem \
 			fs/script \
 			fs/testshell.key \
-			fs/testshell.sh
+			fs/testshell.sh \
+			fs/hellomod
 
 
 FSIMGFILES := $(FSIMGTXTFILES) $(USERAPPS)

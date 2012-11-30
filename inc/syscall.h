@@ -20,6 +20,10 @@ enum {
 	SYS_time_msec,
 	SYS_try_send_packet,
 	SYS_try_rcv_packet,
+	/*LKM*/
+	SYS_load_module,
+	SYS_unload_module,
+
 	NSYSCALLS
 };
 

@@ -14,6 +14,8 @@
 #include <kern/time.h>
 #include <kern/e1000.h>
 
+#include <kern/lkm.h>
+
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
 // Destroys the environment on memory errors.
@@ -469,6 +471,26 @@ sys_try_rcv_packet(void *data, int max_len){
 	user_mem_assert(curenv, data, max_len, PTE_U | PTE_P); //can this be a apossible bug ??
 	return e1000_receive(data, max_len);
 }
+/*
+ * return 0 on success < 0 on fail
+ * Error :
+ * 		-E_LKM_FAIL : if it fails to load the module for any reason.
+ * */
+static int
+sys_load_module(char *buffer){
+	cprintf("in sys call..load module\n");
+	// call the load module in here.
+	load_module(buffer);
+	return 0;
+}
+
+static int
+sys_unload_module(char *buffer){
+	cprintf("in sys call.. unload module");
+	// call clean_module
+	return 0;
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int64_t
 syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5)
@@ -532,6 +554,12 @@ syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, 
 		return ret;
 	}else if (syscallno == SYS_try_rcv_packet){
 		ret = sys_try_rcv_packet((void *)a1, a2);
+		return ret;
+	}else if(syscallno == SYS_load_module){
+		ret = sys_load_module((void *)a1);
+		return ret;
+	}else if(syscallno == SYS_unload_module){
+		ret = sys_unload_module((void *)a1);
 		return ret;
 	}else {
 		return -E_INVAL;

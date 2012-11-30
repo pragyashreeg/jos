@@ -32,6 +32,9 @@ enum {
 	E_RX_BAD    = 18,   // rx buff is malformed
 	E_RX_EMPTY   = 19,   // rx queue is empty
 
+	/*LKM*/
+	E_LKM_FAIL = 20,
+
 	MAXERROR
 };
 
