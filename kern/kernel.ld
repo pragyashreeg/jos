@@ -37,7 +37,8 @@ SECTIONS
 		BYTE(0)		/* Force the linker to allocate space
 				   for this section */
 	}
-
+	
+	
 	/* Adjust the address for the data segment to the next page */
 	. = ALIGN(0x1000);
 
@@ -51,6 +52,7 @@ SECTIONS
 	.bss : {
 		*(.bss)
 	}
+	
 
 	PROVIDE(end = .);
 

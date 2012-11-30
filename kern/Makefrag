@@ -59,7 +59,7 @@ KERN_BINFILES +=	user/testfile \
 			user/icode \
 			user/idle \
 			user/hello \
-			fs/fs
+			fs/fs 
 
 # Binary files for LAB6
 KERN_BINFILES +=	user/testtime \

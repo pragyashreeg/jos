@@ -22,7 +22,6 @@ USERAPPS :=		$(USERAPPS) \
 			$(OBJDIR)/user/primes \
 			$(OBJDIR)/user/primespipe \
 			$(OBJDIR)/user/sh \
-			$(OBJDIR)/user/hello \
 			$(OBJDIR)/user/ls \
 			$(OBJDIR)/user/lsfd \
 			$(OBJDIR)/user/num \

@@ -2,7 +2,7 @@
 #include<inc/module.h>
 #include<inc/elf.h>
 
-#define BUF_SIZE 512
+#define BUF_SIZE 3*1024
 void insmod(char *path){ // can we send just the file handler
 	int f, n;
 	char elf_buffer[BUF_SIZE];
