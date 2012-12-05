@@ -25,7 +25,9 @@ USERAPPS :=		$(USERAPPS) \
 			$(OBJDIR)/user/ls \
 			$(OBJDIR)/user/lsfd \
 			$(OBJDIR)/user/num \
-			$(OBJDIR)/user/insmod 
+			$(OBJDIR)/user/insmod \
+			$(OBJDIR)/user/rmmod
+			
 			
 FSIMGTXTFILES :=	$(FSIMGTXTFILES) \
 			fs/lorem \

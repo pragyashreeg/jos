@@ -12,13 +12,14 @@
 #include <kern/env.h>
 #include <kern/ksyms.h>
 
-#define MODTEMP 0xF0F0000/*temp address for module load*/
+#define MODTEMP 0xF050000/*temp address for module load*/
 
 
 struct Secthdr *sht;
 struct Symhdr *symtab ;
 char *str_tab, *sht_strtab;
 int num_sym, num_sht;
+struct Module m;
 
 
 int elf_lookup_symbol(char *symbol, uint64_t *address_store, struct Elf *elf);
@@ -33,11 +34,10 @@ int load_program(uint64_t load_address);
 int
 load_module(char *buffer, int npages/*no of pages*/){
 
-	print_ksyms();
-	return 0;
+	cprintf("in load module\n");
 
 	struct Page *page = NULL;
-	int perm = PTE_P | PTE_W;
+	int perm = PTE_P | PTE_W | PTE_U;
 	struct Elf *elf = (struct Elf *)buffer;
 	void (*ptr_init_module)();
 
@@ -91,34 +91,44 @@ load_module(char *buffer, int npages/*no of pages*/){
 
 	}
 	//cprintf("size of the module %x\n", size);
-	char loadAddress[size];
-	memset((void *)loadAddress, 0, size);
+	/*char loadAddress[size];
+	memset((void *)loadAddress, 0, size);*/
 
-	/*uint64_t *loadAddress = (uint64_t *)MODTEMP;
+	uint64_t *loadAddress = (uint64_t *)MODTEMP;
+
 	//memove to kernel space
 	page = page_alloc(ALLOC_ZERO);
+	cprintf("boot_pml4e %x,content of pml4e %x,  page %x \n", boot_pml4e, *boot_pml4e, page2pa(page));
 	if (!page){
 		panic("no page");
 		return -E_NO_MEM;
 	}
 
-	if ((page_insert(curenv->env_pml4e, page, loadAddress, perm )) != 0 ){
+	if ((page_insert(boot_pml4e/*curenv->env_pml4e*/, page, loadAddress, perm )) != 0 ){
 		// free the page just created.
 		page_free(page);
 		return -E_NO_MEM;
-	}*/
+	}
+	if ((page_insert(curenv->env_pml4e, page, loadAddress, perm )) != 0 ){
+			// free the page just created.
+			page_free(page);
+			return -E_NO_MEM;
+	}
 
 	//copy in memory
 	uint64_t sect_start_addr = (uint64_t)loadAddress;
+	pte_t *pte_store;
+	struct Page *pg = page_lookup(boot_pml4e, (void *)MODTEMP,&pte_store);
+	cprintf("load address %x, page at load address : %x \n",loadAddress, page2pa(pg));
 	for (i = 0; i < num_sht; i++){
 		if (sht[i].sh_type == ELF_SHT_PROGBITS && sht[i].sh_flags & ELF_SHF_ALLOC){
 			size = sht[i].sh_size;
 			char *name = (char *)(sht_strtab + sht[i].sh_name);
-			//cprintf("type : %s, size :%d, elf %x\n",name, size, elf);
+			cprintf("type : %s, size :%d, elf %x\n",name, size, elf);
 			uint64_t src =(uint64_t)(sht[i].sh_offset + (char *)elf);
 			(sht + i)->sh_addr =sect_start_addr; //dest
 			memcpy((void *)sect_start_addr, (void *)src , size);
-			//cprintf("%x\n",*(uint64_t *)src);
+			cprintf("%x\n",*(uint64_t *)src);
 			//cprintf("%x\n",*(uint64_t *)sect_start_addr);
 			sect_start_addr += size;
 		}
@@ -126,7 +136,7 @@ load_module(char *buffer, int npages/*no of pages*/){
 	}
 
 	//create module
-	struct Module m;
+	//struct Module m;
 	m= create_module((char *)loadAddress);
 	cprintf("init : %x, deinit %x\n", m.init, m.deinit);
 
@@ -141,6 +151,7 @@ load_module(char *buffer, int npages/*no of pages*/){
 
 	//call init
 	((void (*)(void)) (m.init))();
+	//((void (*)(void)) (m.deinit))();
 	/*ptr_init_module = (void (*)())(m.init);
 	cprintf("%x\n", *((uint64_t *)m.init));
 	(*ptr_init_module)();*/
@@ -318,6 +329,19 @@ fix_symbols(){
 
 }
 
+int
+unload_module(){
+	cprintf("in unload module\n");
+	//cprintf("deinit at %x, content : %x, content at init %x\n",m.deinit, *((uint64_t *)m.deinit), *(uint64_t *)m.init);
+	pte_t *pte_store;
+	struct Page *page = page_lookup(boot_pml4e, (void *)MODTEMP,&pte_store);
+	//cprintf("boot_pml4e %x, page %x \n", boot_pml4e, page2pa(page));
+	lcr3(boot_cr3);
+	((void (*)(void)) (0xf050026))();
+	lcr3(curenv->env_cr3);
+	return 0;
+
+}
 
 
 #if 0

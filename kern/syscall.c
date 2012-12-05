@@ -486,8 +486,8 @@ sys_load_module(char *buffer, int size){
 
 static int
 sys_unload_module(char *buffer){
-	cprintf("in sys call.. unload module");
-	// call clean_module
+	cprintf("in sys call.. unload module\n");
+	unload_module();
 	return 0;
 }
 

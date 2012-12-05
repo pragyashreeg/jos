@@ -9,7 +9,7 @@ struct Module{
 };
 
 int load_module(char *buffer, int size);
-int unload_module(char *buffer);
+int unload_module();
 
 
 
