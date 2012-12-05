@@ -2,11 +2,15 @@
 #include<inc/module.h>
 #include<inc/elf.h>
 
-#define BUF_SIZE 3*1024
+#define BUF_SIZE 512
+#define MAX_PAGES 10
+
+/*
 void insmod(char *path){ // can we send just the file handler
 	int f, n;
 	char elf_buffer[BUF_SIZE];
 	struct Elf *elf;
+	int num_pages = 1;
 
 	cprintf("installing module at path %s : \n", path);
 
@@ -23,13 +27,58 @@ void insmod(char *path){ // can we send just the file handler
 			cprintf("failed to read elf file: not an elf file\n");
 			return;
 		}else {
-			sys_load_module(elf_buffer);
+			sys_load_module(elf_buffer, num_pages);
 		}
 
+	}
+}
+*/
 
+
+// Used for temporary page mappings for mapping KLM binary from user space to kernel space
+// (should not conflict with other temporary page mappings)
+#define KLMTEMP UTEMP
+
+void insmod(char *path){ // can we send just the file handler
+	int f, n, fd;
+	struct Elf *elf;
+	int r = 0;
+	int i = 0;
+
+	//TODO : Check if ELF and relocatable.
+
+	f = open(path, O_RDONLY);
+	if(f < 0){
+		cprintf("can't open file %s", path);
+	}
+	else{
+
+		for(i=0; ; i++){
+
+			if(i == MAX_PAGES){
+				cprintf("%s: elf file too large to be read\n",path);
+				return ;
+			}
+			cprintf("%s: elf file \n",path);
+			if ((r = sys_page_alloc(0, KLMTEMP + i * PGSIZE, PTE_P|PTE_U|PTE_W)) < 0)
+				panic("sys_page_alloc: %e", r);
+			//cprintf("page allocated for KLM bin: %0x\n",KLMTEMP);
+			seek(f, i * PGSIZE);
+			if ((n = readn(f, KLMTEMP + i * PGSIZE, PGSIZE )) < PGSIZE ){
+				if(n < 0){
+					cprintf("failed to read elf file: not an elf file\n");
+					return;
+				}
+				else
+					break;
+			}
+
+		}
+		sys_load_module(KLMTEMP, i+1);
 	}
 
 }
+
 
 void umain(int argc, char **argv){
 	binaryname = "insmod";

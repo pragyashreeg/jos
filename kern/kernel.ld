@@ -20,7 +20,8 @@ SECTIONS
 	.rodata : {
 		*(.rodata .rodata.* .gnu.linkonce.r.*)
 	}
-
+	
+	
 	/* Include debugging information in kernel memory */
 	.stab : {
 		PROVIDE(__STAB_BEGIN__ = .);
@@ -29,6 +30,7 @@ SECTIONS
 		BYTE(0)		/* Force the linker to allocate space
 				   for this section */
 	}
+	
 
 	.stabstr : {
 		PROVIDE(__STABSTR_BEGIN__ = .);
@@ -37,6 +39,8 @@ SECTIONS
 		BYTE(0)		/* Force the linker to allocate space
 				   for this section */
 	}
+	
+
 	
 	
 	/* Adjust the address for the data segment to the next page */
@@ -53,7 +57,28 @@ SECTIONS
 		*(.bss)
 	}
 	
-
+	.comment : {
+		*(.comment)	
+	}	
+	
+	.shstrtab : {
+		*(.shstrtab)
+	}
+	
+	.symtab : {
+		PROVIDE(__KSYM_BEGIN__ = .);
+		*(.symtab);
+		PROVIDE(__KSYM_END__ = .);
+		
+	}
+	
+	.strtab : {
+		PROVIDE(__KSYMSTR_BEGIN__ = .);
+		*(.strtab);
+		PROVIDE(__KSYMSTR_END__ = .);
+		
+	}
+	
 	PROVIDE(end = .);
 
 	/DISCARD/ : {

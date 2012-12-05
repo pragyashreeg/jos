@@ -477,10 +477,10 @@ sys_try_rcv_packet(void *data, int max_len){
  * 		-E_LKM_FAIL : if it fails to load the module for any reason.
  * */
 static int
-sys_load_module(char *buffer){
+sys_load_module(char *buffer, int size){
 	cprintf("in sys call..load module\n");
 	// call the load module in here.
-	load_module(buffer);
+	load_module(buffer, size);
 	return 0;
 }
 
@@ -556,7 +556,7 @@ syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, 
 		ret = sys_try_rcv_packet((void *)a1, a2);
 		return ret;
 	}else if(syscallno == SYS_load_module){
-		ret = sys_load_module((void *)a1);
+		ret = sys_load_module((void *)a1, a2);
 		return ret;
 	}else if(syscallno == SYS_unload_module){
 		ret = sys_unload_module((void *)a1);

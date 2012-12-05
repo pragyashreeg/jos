@@ -44,7 +44,8 @@ KERN_SRCFILES +=	kern/e100.c \
 			kern/time.c
 			
 #Source files for LKM
-KERN_SRCFILES +=    kern/lkm.c 
+KERN_SRCFILES +=    kern/lkm.c \
+					kern/ksyms.c
 
 # Only build files if they exist.
 KERN_SRCFILES := $(wildcard $(KERN_SRCFILES))

@@ -1,6 +1,6 @@
 #ifndef JOS_INC_MODULE_H
 #define JOS_INC_MODULE_H
 
-int sys_load_module(char *);
+int sys_load_module(char *, int size);
 
 #endif /*JOS_INC_MODULE_H*/
