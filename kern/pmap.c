@@ -11,6 +11,8 @@
 #include <kern/env.h>
 #include <kern/cpu.h>
 
+#include <kern/lkm.h>
+
 #define MODTEMP 0xF0F0000
 #define BOOT_PAGE_TABLE_START 0xf0008000
 #define BOOT_PAGE_TABLE_END   0xf000e000
@@ -170,6 +172,10 @@ x64_vm_init(void)
 	// LAB 3: Your code here.
 	envs = boot_alloc(sizeof(struct Env)* NENV);
 	memset(envs, 0, sizeof(struct Env)*NENV);	
+	/////////////////////////////////////////////////////////////////////
+	//Lab 7:LKM list
+	modules = boot_alloc(sizeof(struct Module)*NLKM);
+	memset(modules,0, sizeof(struct Module)*NLKM);
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
 	// up the list of free physical pages. Once we've done so, all further

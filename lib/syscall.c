@@ -138,11 +138,16 @@ sys_try_rcv_packet(void *data, int max_len)
 }
 
 int
-sys_load_module(void *buffer, int size){
-	return (int) syscall(SYS_load_module, 1, (uint64_t)buffer, size, 0, 0, 0);
+sys_load_module(void *buffer, void *path){
+	return (int) syscall(SYS_load_module, 1, (uint64_t)buffer, (uint64_t)path, 0, 0, 0);
 }
 
 int
-sys_unload_module(void *buffer){
-	return (int) syscall(SYS_unload_module, 1, (uint64_t)buffer, 0, 0, 0, 0);
+sys_unload_module(void *path){
+	return (int) syscall(SYS_unload_module, 1, (uint64_t)path, 0, 0, 0, 0);
+}
+
+int
+sys_list_module(){
+	return (int) syscall(SYS_list_module, 1, 0, 0, 0, 0, 0);
 }

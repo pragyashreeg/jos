@@ -26,15 +26,24 @@ USERAPPS :=		$(USERAPPS) \
 			$(OBJDIR)/user/lsfd \
 			$(OBJDIR)/user/num \
 			$(OBJDIR)/user/insmod \
-			$(OBJDIR)/user/rmmod
-			
+			$(OBJDIR)/user/rmmod \
+			$(OBJDIR)/user/lsmod 
+			#$(OBJDIR)/user/testNewSyscall
+			#$(OBJDIR)/user/hellomod \
+			$(OBJDIR)/user/hellomod2 \
+			$(OBJDIR)/user/newsyscall \
 			
 FSIMGTXTFILES :=	$(FSIMGTXTFILES) \
 			fs/lorem \
 			fs/script \
 			fs/testshell.key \
 			fs/testshell.sh \
-			fs/hellomod
+			fs/hellomod \
+			fs/hellomod2 \
+			fs/newsymbol \
+			fs/newsyscall \
+			fs/testNewSyscall \
+			fs/nextmod \
 
 
 FSIMGFILES := $(FSIMGTXTFILES) $(USERAPPS)

@@ -16,6 +16,7 @@
 #include <kern/spinlock.h>
 #include <kern/time.h>
 #include <kern/pci.h>
+#include <kern/lkm.h>
 
 #include <inc/trap.h>
 
@@ -43,6 +44,9 @@ i386_init(void)
 	// Lab 3 user environment initialization functions
 	env_init();
 	trap_init();
+
+	//Lab 7: LKM
+	lkm_init();
 
 	// Lab 4 multiprocessor initialization functions
 	mp_init();

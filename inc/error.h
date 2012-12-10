@@ -34,6 +34,10 @@ enum {
 
 	/*LKM*/
 	E_LKM_FAIL = 20,
+	E_BAD_ELF =21,
+	NO_FREE_MODULE =22,
+	E_BAD_MODULE = 23,
+	E_BAD_SYMBOL = 24,
 
 	MAXERROR
 };

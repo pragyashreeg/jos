@@ -1,8 +1,6 @@
 #include<inc/lib.h>
-#include<inc/module.h>
 #include<inc/elf.h>
 
-#define BUF_SIZE 512
 #define MAX_PAGES 10
 
 /*
@@ -54,12 +52,10 @@ void insmod(char *path){ // can we send just the file handler
 	else{
 
 		for(i=0; ; i++){
-
 			if(i == MAX_PAGES){
 				cprintf("%s: elf file too large to be read\n",path);
 				return ;
 			}
-			cprintf("%s: elf file \n",path);
 			if ((r = sys_page_alloc(0, KLMTEMP + i * PGSIZE, PTE_P|PTE_U|PTE_W)) < 0)
 				panic("sys_page_alloc: %e", r);
 			//cprintf("page allocated for KLM bin: %0x\n",KLMTEMP);
@@ -74,7 +70,7 @@ void insmod(char *path){ // can we send just the file handler
 			}
 
 		}
-		sys_load_module(KLMTEMP, i+1);
+		sys_load_module(KLMTEMP, path);
 	}
 
 }

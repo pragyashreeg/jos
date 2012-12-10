@@ -477,20 +477,26 @@ sys_try_rcv_packet(void *data, int max_len){
  * 		-E_LKM_FAIL : if it fails to load the module for any reason.
  * */
 static int
-sys_load_module(char *buffer, int size){
-	cprintf("in sys call..load module\n");
+sys_load_module(char *buffer, char *path){
+	cprintf("in sys_load_module ..\n");
 	// call the load module in here.
-	load_module(buffer, size);
+	load_module(buffer, path);
 	return 0;
 }
 
 static int
-sys_unload_module(char *buffer){
-	cprintf("in sys call.. unload module\n");
-	unload_module();
+sys_unload_module(char *path){
+	cprintf("in sys_unload_module..\n");
+	unload_module(path);
 	return 0;
 }
 
+static int
+sys_list_module(){
+	cprintf("in sys_list_module.. \n");
+	list_module();
+	return 0;
+}
 // Dispatches to the correct kernel function, passing the arguments.
 int64_t
 syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5)
@@ -556,11 +562,13 @@ syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, 
 		ret = sys_try_rcv_packet((void *)a1, a2);
 		return ret;
 	}else if(syscallno == SYS_load_module){
-		ret = sys_load_module((void *)a1, a2);
+		ret = sys_load_module((void *)a1, (void *)a2);
 		return ret;
 	}else if(syscallno == SYS_unload_module){
 		ret = sys_unload_module((void *)a1);
 		return ret;
+	}else if(syscallno == SYS_list_module){
+		return sys_list_module((void *)a1);
 	}else {
 		return -E_INVAL;
 	}
