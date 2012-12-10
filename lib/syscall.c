@@ -151,3 +151,8 @@ int
 sys_list_module(){
 	return (int) syscall(SYS_list_module, 1, 0, 0, 0, 0, 0);
 }
+
+int
+sys_call_module(void *name){
+	return (int) syscall(SYS_call_module, 1, (uint64_t)name, 0, 0, 0, 0);
+}

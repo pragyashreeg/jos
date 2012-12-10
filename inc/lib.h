@@ -66,6 +66,7 @@ int sys_try_rcv_packet(void *data, int max_len);
 int sys_load_module(void *buffer, void *path);
 int sys_unload_module(void *path);
 int sys_list_module();
+int sys_call_module(void *name);
 
 // This must be inlined.  Exercise for reader: why?
 static __inline envid_t __attribute__((always_inline))

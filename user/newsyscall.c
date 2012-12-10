@@ -19,11 +19,32 @@ sys_hello_me(){
 }
 
 int
+sys_screensaver(){
+	int row, c, n, temp;
+	n = 10;
+	temp = n;
+
+	for ( row = 1 ; row <= n ; row++ )
+	{
+		for ( c = 1 ; c < temp ; c++ )
+			cprintf(" ");
+
+		temp--;
+
+		for ( c = 1 ; c <= 2*row - 1 ; c++ )
+			cprintf("*");
+
+		cprintf("\n");
+	}
+	return 0;
+}
+
+int
 init_module(){
 	//insert in ksyms
 	cprintf("in newsyscall init module\n");
 	put_ksyms("sys_hello_me",(uint64_t)&sys_hello_me);
-	//do a putsyms draw a fancy stars
+	put_ksyms("sys_screensaver",(uint64_t)&sys_screensaver);
 	return 0;
 }
 
@@ -32,6 +53,6 @@ clean_module(){
 	//delete from ksyms
 	cprintf("in newsyscall clean module\n");
 	remove_ksyms("sys_hello_me");
-	//do a removesyms draw a fancy stars
+	remove_ksyms("sys_screensaver");
 	return 0;
 }

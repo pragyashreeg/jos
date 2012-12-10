@@ -127,7 +127,7 @@ remove_ksyms(char *symbol_name){
 
 int
 put_ksyms(char *name, uint64_t value){
-	cprintf("in put ksyms\n");
+
 	int s=0;
 	//find a free slot
 	for(s=0; s<MAX_SYM_NUM; s++){

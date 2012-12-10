@@ -6,7 +6,7 @@ MODULE_AUTHOR("m.paul")
 int
 init_module(){
 	cprintf("in testsyscall init module\n");
-	sys_hello_me(); // this is the syscall
+	sys_hello_me(); // this is the newly added syscall
 	return 0;
 }
 

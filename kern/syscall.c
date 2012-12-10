@@ -15,6 +15,7 @@
 #include <kern/e1000.h>
 
 #include <kern/lkm.h>
+#include <kern/ksyms.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -497,6 +498,31 @@ sys_list_module(){
 	list_module();
 	return 0;
 }
+
+static int
+sys_call_module(char *name){
+	if (!name){
+		return -E_BAD_SYMBOL;
+	}
+	int err;
+
+	uint64_t function;
+	struct Ksymbol symbol_store;
+	if ((err = get_ksyms(name,&symbol_store)) < 0){
+		cprintf("symbol not found\n");
+		return -1;
+	}
+	function = symbol_store.value;
+	cprintf ("%x\n", function);
+	if (function){
+		lcr3(boot_cr3);
+		((void (*)(void)) (function))();
+		lcr3(curenv->env_cr3);
+	}
+	return 0;
+
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int64_t
 syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5)
@@ -569,8 +595,11 @@ syscall(uint64_t syscallno, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, 
 		return ret;
 	}else if(syscallno == SYS_list_module){
 		return sys_list_module((void *)a1);
+	}else if(syscallno == SYS_call_module){
+		return sys_call_module((void *)a1);
 	}else {
 		return -E_INVAL;
 	}
+
 }
 

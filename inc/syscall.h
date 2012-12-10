@@ -24,6 +24,7 @@ enum {
 	SYS_load_module,
 	SYS_unload_module,
 	SYS_list_module,
+	SYS_call_module,
 
 	NSYSCALLS
 };

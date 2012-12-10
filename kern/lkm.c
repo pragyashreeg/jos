@@ -60,11 +60,18 @@ print_modules(int onlyLoaded){
 
 int
 list_module(){
+	int find = false;
 	int c;
 	cprintf("Listing the modules currently installed..\n");
 	for(c=0; c <NLKM-1; c++){
-		if (modules[c].isLoaded)
+		if (modules[c].isLoaded){
+			find = true;
 			cprintf("Module : %s(version = %s) is loaded at kernel load Address : %x\n",modules[c].name, modules[c].version, modules[c].loadAddress);
+		}
+
+	}
+	if (!find){
+		cprintf(".....No modules installed \n");
 	}
 	return 0;
 }
@@ -80,20 +87,27 @@ load_module(char *buffer, char *path){
 	elf = (struct Elf *)buffer;
 	void (*ptr_init_module)();
 	int err, c;
+	int upgrade = -1;
 
 	//TODO : Sanity check.
 	if (elf->e_magic == ELF_MAGIC){
-		cprintf("*******************\n\n");
+		cprintf("*******************\n");
 		cprintf("installing module %s\n", path);
 	}else{
 		cprintf("Failed to load module Not a valid ELF");
 		return -E_BAD_ELF;
 	}
 
+	//jos limitation patch
+	if (!strncmp("hellomodv", path, 9)){
+		strcpy(path, "hellomodv");
+	}
+
 	//check if module already loaded
-	if ((err = lookup_module(path)) >= 0){
-		cprintf("module already loaded..checking version\n");
-		return -E_LKM_FAIL;
+	if (((err = lookup_module(path)) >= 0)){ //patch to overcome JOS limitation
+		upgrade = err; // the old module
+		//return -E_LKM_FAIL;
+
 	}
 	/****************************************************CREATE CONV VARIABLES *******************************************/
 
@@ -146,15 +160,26 @@ load_module(char *buffer, char *path){
 
 	/*******************************************RELOCATION************************************************************/
 	apply_relocation((uint64_t *)modules[c].loadAddress, elf);
-	//print_symboltable();
-	//print_sht();
 
 	/***FIX THE METADATA*****/
 	get_meta(c);
 	//fix the name here.
 	strncpy(modules[c].name, path, MOD_NAME_LEN);//name is the name of the file
-
 	//check if upgrade
+	if (upgrade >= 0){ //possibly an upgrade
+		cprintf("module already loaded..checking version\n");
+		if(!strcmp(modules[upgrade].version, modules[c].version )){
+			//not an upgrade.
+			//clear the module
+			cprintf("its the same old boring version\n... exiting\n");
+			remove_module(c);
+			return E_LKM_FAIL;
+		}else {//an upgrade.
+			cprintf("upgrade found\n");
+			cprintf("upgrading module %s, from %s to %s\n", modules[c].name, modules[upgrade].version, modules[c].version);
+			remove_module(upgrade);
+		}
+	}
 
 	//call init
 
@@ -287,10 +312,10 @@ create_Module(){
 	for(i=0; i<num_sym;i++){
 		char *name = (char *)(str_tab + symtab[i].st_name);
 		if (!(strcmp(name, "init_module"))){
-			cprintf("init module found\n");
+			//cprintf("init module found\n");
 			modules[c].init =(uint64_t *)((char *)(modules[c].loadAddress) + symtab[i].st_value);
 		}else if(!(strcmp(name, "clean_module"))){
-			cprintf("clean_module found\n");
+			//cprintf("clean_module found\n");
 			modules[c].deinit = (uint64_t *)( (char *)(modules[c].loadAddress) + symtab[i].st_value);
 		}
 	}

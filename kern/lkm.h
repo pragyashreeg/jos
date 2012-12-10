@@ -35,7 +35,7 @@ int load_program(int c);
 int get_meta(int c);
 int list_module();
 int lookup_module(char *mname);
-
+int remove_module(int c);
 struct Module *modules;
 
 #endif
