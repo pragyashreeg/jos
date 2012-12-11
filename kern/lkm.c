@@ -156,7 +156,10 @@ load_module(char *buffer, char *path){
 
 	/************************************FIX SYMBOLS********************************************************/
 	//fix_ksymbols();
-	fix_symbols();
+	if (fix_symbols() < 0){
+		cprintf("failed to load module. could not resolve references\n");
+		return -E_BAD_SYMBOL;
+	}
 
 	/*******************************************RELOCATION************************************************************/
 	apply_relocation((uint64_t *)modules[c].loadAddress, elf);

@@ -25,6 +25,7 @@ USERAPPS :=		$(USERAPPS) \
 			$(OBJDIR)/user/ls \
 			$(OBJDIR)/user/lsfd \
 			$(OBJDIR)/user/num \
+			$(OBJDIR)/user/testpteshare \
 			$(OBJDIR)/user/insmod \
 			$(OBJDIR)/user/rmmod \
 			$(OBJDIR)/user/lsmod \
