@@ -158,6 +158,7 @@ load_module(char *buffer, char *path){
 	//fix_ksymbols();
 	if (fix_symbols() < 0){
 		cprintf("failed to load module. could not resolve references\n");
+		remove_module(c);
 		return -E_BAD_SYMBOL;
 	}
 
